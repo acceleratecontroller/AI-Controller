@@ -334,7 +334,9 @@
                 </div>
                 <div class="form-group">
                   <label for="owner">Owner</label>
-                  <input type="text" id="owner" name="owner" placeholder="Who's responsible?" required>
+                  <select id="owner" name="owner" required>
+                    <option value="">Select Owner</option>
+                  </select>
                 </div>
                 <div class="form-group">
                   <label for="label">Label</label>
@@ -407,7 +409,9 @@
               <form class="task-form" id="recurringTaskForm">
                 <div class="form-group">
                   <label for="recurringOwner">Owner</label>
-                  <input type="text" id="recurringOwner" name="recurringOwner" placeholder="Who's responsible?" required>
+                  <select id="recurringOwner" name="recurringOwner" required>
+                    <option value="">Select Owner</option>
+                  </select>
                 </div>
                 <div class="form-group">
                   <label for="recurringCategory">Category</label>
@@ -616,6 +620,26 @@
         }
       }
 
+      static populateSelect(selectId, options, placeholder = '') {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+
+        select.innerHTML = '';
+        if (placeholder) {
+          const opt = document.createElement('option');
+          opt.value = '';
+          opt.textContent = placeholder;
+          select.appendChild(opt);
+        }
+
+        options.forEach(option => {
+          const opt = document.createElement('option');
+          opt.value = option;
+          opt.textContent = option;
+          select.appendChild(opt);
+        });
+      }
+
       static updateDropdown(selectId, options, selectedValue = '') {
         const select = document.getElementById(selectId);
         if (!select) return;
@@ -664,6 +688,7 @@
         this.state = {
           tasks: [],
           recurringTasks: [],
+          contacts: [],
           currentFilter: 'all',
           selectedOwner: '',
           recurringCurrentFilter: 'all',
@@ -683,7 +708,11 @@
 
       async init() {
         try {
-          await Promise.all([this.loadTasks(), this.loadRecurringTasks()]);
+          await Promise.all([
+            this.loadContacts(),
+            this.loadTasks(),
+            this.loadRecurringTasks()
+          ]);
           this.bindEvents();
           this.bindTabEvents();
           this.setDefaultDueDate();
@@ -748,10 +777,25 @@
         }
 
         this.state.recurringTasks = (data || []).map(this.normalizeRecurringTask);
-        
+
         if (this.state.activeTab === 'recurring-tasks') {
           this.renderRecurringTasks();
         }
+      }
+
+      async loadContacts() {
+        const { data, error } = await this.supabase
+          .from('contacts')
+          .select('first_name, last_name')
+          .order('first_name', { ascending: true });
+
+        if (error) {
+          if (error.message?.includes('relation "contacts" does not exist')) return;
+          throw error;
+        }
+
+        this.state.contacts = (data || []).map(c => `${c.first_name} ${c.last_name}`.trim());
+        this.populateOwnerSelects();
       }
 
       normalizeTask(task) {
@@ -1095,7 +1139,7 @@
           return { isValid: false, message: 'Please enter a task description' };
         }
         if (!formData.owner) {
-          return { isValid: false, message: 'Please enter a task owner' };
+          return { isValid: false, message: 'Please select a task owner' };
         }
         return { isValid: true };
       }
@@ -1179,7 +1223,7 @@
           return { isValid: false, message: 'Please enter a task title' };
         }
         if (!formData.owner) {
-          return { isValid: false, message: 'Please enter a task owner' };
+          return { isValid: false, message: 'Please select a task owner' };
         }
         return { isValid: true };
       }
@@ -1253,6 +1297,12 @@
       updateRecurringOwnerDropdown() {
         const owners = [...new Set(this.state.recurringTasks.map(t => t.owner).filter(Boolean))].sort();
         this.state.recurringSelectedOwner = DOMUtils.updateDropdown('recurringOwnerFilter', owners, this.state.recurringSelectedOwner);
+      }
+
+      populateOwnerSelects() {
+        const owners = [...this.state.contacts].sort();
+        DOMUtils.populateSelect('owner', owners, 'Select Owner');
+        DOMUtils.populateSelect('recurringOwner', owners, 'Select Owner');
       }
 
       filterTasks() {
@@ -1784,6 +1834,21 @@
             select.appendChild(opt);
           });
           
+          return select;
+        }
+
+        if (field === 'owner') {
+          const select = document.createElement('select');
+          select.className = 'edit-select';
+          const owners = [...this.state.contacts];
+          if (value && !owners.includes(value)) owners.unshift(value);
+          owners.forEach(owner => {
+            const opt = document.createElement('option');
+            opt.value = owner;
+            opt.textContent = owner;
+            if (owner === value) opt.selected = true;
+            select.appendChild(opt);
+          });
           return select;
         }
 
