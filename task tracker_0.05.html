@@ -1,0 +1,1952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1"
+  />
+  <title>ACOMS Support - To Do</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 10px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(90deg, #2c3e50, #34495e);
+      color: #fff;
+      padding: 8px 20px;
+      text-align: center;
+    }
+    .header h1 { font-size: 1.4rem; margin-bottom: 2px; }
+    .header p { opacity: 0.9; font-size: 0.8rem; margin: 0; font-style: italic; }
+
+    .loading { text-align: center; padding: 40px; color: #666; }
+
+    .error {
+      background: #f8d7da; color: #721c24; padding: 15px 20px; margin: 20px;
+      border-radius: 8px; border: 1px solid #f5c6cb;
+    }
+
+    .add-task-section {
+      padding: 10px 20px; background: #f8f9fa; border-bottom: 1px solid #e9ecef;
+      transition: all 0.3s ease;
+    }
+    .quick-add { margin-bottom: 10px; }
+    .quick-add input {
+      width: 100%; padding: 12px 16px; border: 2px solid #e9ecef; border-radius: 20px;
+      font-size: 1rem; transition: all 0.3s ease; background: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .quick-add input:focus {
+      outline: none; border-color: #667eea;
+      box-shadow: 0 4px 20px rgba(102, 126, 234, 0.2);
+    }
+
+    .expanded-form { max-height: 0; overflow: hidden; transition: max-height .3s ease, opacity .3s ease; opacity: 0; }
+    .expanded-form.show { max-height: 600px; opacity: 1; margin-top: 10px; }
+
+    .task-form {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px; margin-bottom: 10px;
+    }
+
+    .form-group { display: flex; flex-direction: column; }
+    .form-group label {
+      font-weight: 600; margin-bottom: 4px; color: #2c3e50; font-size: 0.85rem;
+    }
+    .form-group input, .form-group select, .form-group textarea {
+      padding: 10px; border: 2px solid #e9ecef; border-radius: 6px; font-size: 0.95rem;
+      transition: border-color .3s ease;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      outline: none; border-color: #667eea;
+    }
+    .form-group textarea { resize: vertical; min-height: 60px; }
+
+    .btn {
+      background: linear-gradient(45deg, #667eea, #764ba2); color: #fff; border: none;
+      padding: 12px 24px; border-radius: 6px; font-size: 1rem; cursor: pointer;
+      transition: transform .2s ease; font-weight: 600;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn:disabled { opacity: .6; cursor: not-allowed; }
+
+    .tasks-section { padding: 15px 20px; }
+
+    .filters { display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; align-items: center; }
+    .filter-btn {
+      padding: 6px 12px; border: 2px solid #e9ecef; background: #fff; border-radius: 20px;
+      cursor: pointer; transition: all .3s ease; font-size: 0.85rem;
+    }
+    .filter-btn.active { background: #667eea; color: #fff; border-color: #667eea; }
+
+    .owner-filter { position: relative; }
+    .owner-dropdown {
+      padding: 6px 12px; border: 2px solid #e9ecef; background: #fff; border-radius: 20px;
+      cursor: pointer; transition: all .3s ease; font-size: 0.85rem; min-width: 130px;
+    }
+    .owner-dropdown.active { border-color: #667eea; background: #f8f9ff; }
+    .owner-dropdown:focus { outline: none; border-color: #667eea; }
+
+    .task-table {
+      background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .table-header {
+      background: linear-gradient(90deg, #2c3e50, #34495e); color: #fff; display: grid;
+      grid-template-columns: 2fr 1fr 2fr 1fr 1fr 1fr 1fr 1fr 1.5fr;
+      padding: 10px 16px; font-weight: 600; font-size: 0.8rem;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .task-row {
+      display: grid; grid-template-columns: 2fr 1fr 2fr 1fr 1fr 1fr 1fr 1fr 1.5fr;
+      padding: 8px 16px; border-bottom: 1px solid #e9ecef; transition: all .2s ease;
+      align-items: center; position: relative; border-left: 4px solid transparent;
+    }
+    .task-row:hover { background: #f8f9fa; transform: translateX(5px); }
+    .task-row:last-child { border-bottom: none; }
+
+    .task-title { font-weight: 600; color: #2c3e50; font-size: 0.95rem; }
+    .project-id {
+      background: #e3f2fd; color: #1976d2; padding: 3px 8px; border-radius: 10px; font-size: 0.8rem;
+      font-weight: 600; display: inline-block; max-width: fit-content;
+    }
+    .task-notes { font-size: 0.85rem; color: #666; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+    .task-owner, .task-label, .due-date, .task-priority { font-size: 0.9rem; color: #2c3e50; }
+
+    .task-status { font-size: 0.85rem; font-weight: 600; padding: 4px 8px; border-radius: 12px; text-align: center; }
+    .status-pending { background: #fff3cd; color: #856404; }
+    .status-not-started { background: #e9ecef; color: #495057; }
+    .status-in-progress { background: #cfe2ff; color: #0a58ca; }
+    .status-stuck { background: #f8d7da; color: #721c24; }
+    .status-awaiting-response { background: #fff3cd; color: #856404; }
+    .status-completed { background: #d4edda; color: #155724; }
+
+    .task-actions { display: flex; gap: 5px; justify-content: flex-end; }
+    .btn-small {
+      background: none; border: none; cursor: pointer; transition: all .2s ease; font-size: 1.2rem;
+      padding: 4px; border-radius: 50%; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+    }
+    .btn-delete { color: #dc3545; }
+    .btn-complete { color: #28a745; }
+    .btn-small:hover { transform: scale(1.2); background-color: rgba(0,0,0,0.05); }
+    .btn-delete:hover { background-color: rgba(220,53,69,0.1); }
+    .btn-complete:hover { background-color: rgba(40,167,69,0.1); }
+
+    .priority-indicator { width: 4px; height: 100%; position: absolute; left: 0; top: 0; }
+    .priority-high .priority-indicator { background: #dc3545; }
+    .priority-medium .priority-indicator { background: #ffc107; }
+    .priority-low .priority-indicator { background: #28a745; }
+
+    .overdue { background: #fff5f5 !important; }
+    .overdue .due-date { color: #dc3545 !important; font-weight: bold; }
+    .completed-task { opacity: 0.6; }
+    .completed-task .task-title { text-decoration: line-through; }
+
+    .nav-tabs {
+      display: flex; background: #f8f9fa; border-bottom: 2px solid #e9ecef; margin: 0; padding: 0 20px;
+    }
+    .nav-tab {
+      padding: 12px 24px; background: none; border: none; cursor: pointer; font-size: 1rem; font-weight: 600;
+      color: #666; border-bottom: 3px solid transparent; transition: all 0.3s ease;
+    }
+    .nav-tab:hover { color: #667eea; background: rgba(102,126,234,0.1); }
+    .nav-tab.active { color: #667eea; border-bottom-color: #667eea; background: rgba(102,126,234,0.1); }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .view-toggle { display: flex; gap: 8px; margin-bottom: 15px; }
+    .view-btn {
+      padding: 6px 12px; border: 2px solid #e9ecef; background: #fff; border-radius: 20px;
+      cursor: pointer; transition: all .3s ease; font-size: 0.85rem; font-weight: 600;
+    }
+    .view-btn.active { background: #667eea; color: #fff; border-color: #667eea; }
+
+    .calendar-view { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    .calendar-header {
+      display: flex; justify-content: space-between; align-items: center; padding: 15px 20px;
+      background: linear-gradient(90deg, #2c3e50, #34495e); color: #fff;
+    }
+    .calendar-nav { display: flex; align-items: center; gap: 15px; }
+    .calendar-nav button {
+      background: none; border: none; color: #fff; font-size: 1.2rem; cursor: pointer; padding: 5px 10px;
+      border-radius: 4px; transition: background .2s ease;
+    }
+    .calendar-nav button:hover { background: rgba(255,255,255,0.2); }
+    .calendar-title { font-size: 1.2rem; font-weight: 600; }
+
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+    .calendar-day-header {
+      padding: 10px; background: #f8f9fa; text-align: center; font-weight: 600; font-size: 0.8rem; color: #666;
+      border-bottom: 1px solid #e9ecef;
+    }
+
+    .calendar-day {
+      min-height: 80px; border-right: 1px solid #e9ecef; border-bottom: 1px solid #e9ecef; padding: 5px; position: relative;
+    }
+    .calendar-day:nth-child(7n) { border-right: none; }
+    .calendar-day-number { font-size: 0.8rem; color: #666; margin-bottom: 3px; }
+    .calendar-day.other-month { background: #f8f9fa; color: #ccc; }
+    .calendar-day.today { background: rgba(102,126,234,0.1); }
+
+    .calendar-task {
+      font-size: 0.7rem; padding: 2px 4px; margin-bottom: 2px; border-radius: 3px; cursor: pointer;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .calendar-task.overdue { background: #a71e2a; color: #fff; }
+    .calendar-task.due-soon { background: #ffc107; color: #000; }
+    .calendar-task.on-track { background: #28a745; color: #fff; }
+
+    .recurring-task-overdue { background: #fff5f5 !important; }
+    .recurring-task-due-soon { background: #fffbf0 !important; }
+    .recurring-task-on-track { background: #f0fff4 !important; }
+
+    .editable-field { cursor: pointer; padding: 2px 4px; border-radius: 3px; transition: background-color .2s ease; }
+    .editable-field:hover { background-color: #e3f2fd; }
+    .editing-field { background-color: #fff3cd; border: 2px solid #667eea; }
+    .edit-input, .edit-select, .edit-textarea {
+      width: 100%; border: none; background: transparent; font-size: inherit; font-family: inherit; color: inherit; padding: 2px 4px; outline: none;
+    }
+    .edit-input:focus, .edit-select:focus, .edit-textarea:focus { background: #fff; border: 1px solid #667eea; border-radius: 3px; }
+    .edit-textarea { resize: vertical; min-height: 50px; }
+
+    .date-header { color: #2c3e50; padding: 6px 0px; font-weight: 500; font-size: 0.8rem; margin: 12px 0 6px 0; text-align: left; opacity: 0.8; }
+    .date-header:first-child { margin-top: 0; }
+
+    .empty-state { text-align: center; padding: 40px 20px; color: #666; }
+    .empty-state h3 { font-size: 1.3rem; margin-bottom: 8px; }
+
+    .floating-add-btn {
+      display: none; position: fixed; bottom: 15px; right: 15px; width: 50px; height: 50px;
+      border-radius: 50%; background: linear-gradient(45deg, #667eea, #764ba2); color: #fff; border: none; font-size: 20px; cursor: pointer;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); z-index: 1000; transition: all .3s ease;
+    }
+    .floating-add-btn:hover { transform: scale(1.1); box-shadow: 0 6px 25px rgba(102, 126, 234, 0.6); }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+      .container { margin: 0; border-radius: 0; min-height: 100vh; }
+      .header { padding: 6px 12px; text-align: center; }
+      .header h1 { font-size: 1.2rem; }
+      .header p { font-size: 0.75rem; }
+
+      .add-task-section { padding: 8px; padding-bottom: 60px; }
+      .tasks-section { padding: 8px; }
+      .task-form { grid-template-columns: 1fr; }
+      .filters { justify-content: flex-start; overflow-x: auto; padding-bottom: 10px; }
+      .filter-btn, .owner-dropdown { flex-shrink: 0; white-space: nowrap; }
+
+      .table-header { display: none; }
+      .task-table { border-radius: 0; box-shadow: none; }
+
+      .task-row {
+        display: block; background: #fff; border: 1px solid #e9ecef; border-radius: 10px; margin-bottom: 10px; padding: 12px;
+        position: relative; overflow: hidden; transition: all .3s ease; transform: translateX(0);
+      }
+      .task-row:hover { transform: translateX(0); }
+
+      .mobile-task-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+      .mobile-task-title { font-weight: 600; font-size: 1.1rem; color: #2c3e50; flex: 1; margin-right: 10px; }
+      .mobile-priority-badge { padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+      .priority-high { background: #dc3545; color: #fff; }
+      .priority-medium { background: #ffc107; color: #000; }
+      .priority-low { background: #28a745; color: #fff; }
+
+      .mobile-task-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin-bottom: 12px; font-size: 0.9rem; }
+      .mobile-meta-item { display: flex; align-items: center; }
+      .mobile-meta-label { font-weight: 600; color: #666; margin-right: 8px; min-width: 60px; }
+      .mobile-meta-value { color: #2c3e50; flex: 1; }
+      .mobile-task-notes { background: #f8f9fa; padding: 10px; border-radius: 8px; font-size: 0.9rem; color: #555; font-style: italic; margin-bottom: 12px; }
+      .mobile-task-actions { display: flex; justify-content: flex-end; gap: 10px; }
+      .mobile-due-date { font-weight: 600; }
+      .mobile-due-date.overdue { color: #dc3545; }
+
+      .task-row .priority-indicator, .task-row .task-title, .task-row .project-id, .task-row .task-notes,
+      .task-row .task-owner, .task-row .task-label, .task-row .due-date, .task-row .task-status, .task-row .task-priority,
+      .task-row .task-actions { display: none; }
+
+      .floating-add-btn { display: flex; align-items: center; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>ACOMS Support - Task Manager</h1>
+      <p>I have come here to drink coffee and close tasks... and I'm all out of coffee</p>
+    </div>
+
+    <div id="app-content">
+      <div class="loading">
+        <h3>Loading...</h3>
+        <p>Connecting to database...</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script>
+    const CONFIG = {
+      SUPABASE_URL: 'https://dudbdqrcdhiomurbruzq.supabase.co',
+      SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1ZGJkcXJjZGhpb211cmJydXpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYyMDU1NTcsImV4cCI6MjA3MTc4MTU1N30.kScYUzJtOgbtqujDXS9zolrSiAMhLaN8n-STOJAWqRc',
+      OWNER_COLORS: [
+        '#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6',
+        '#1abc9c','#e67e22','#34495e','#e91e63','#00bcd4',
+        '#4caf50','#ff9800','#673ab7','#607d8b','#795548',
+        '#f44336','#2196f3','#8bc34a','#ffc107','#9c27b0'
+      ]
+    };
+
+    const TEMPLATES = {
+      mainUI: `
+        <div class="nav-tabs">
+          <button class="nav-tab active" data-tab="quick-tasks">Quick Tasks</button>
+          <button class="nav-tab" data-tab="recurring-tasks">Recurring Tasks</button>
+        </div>
+
+        <div id="quick-tasks" class="tab-content active">
+          <div class="add-task-section">
+            <div class="quick-add">
+              <input type="text" id="quickTask" placeholder="What needs to be done? (start typing to add more details...)" autocomplete="off">
+            </div>
+
+            <div class="expanded-form" id="expandedForm">
+              <form class="task-form" id="taskForm">
+                <div class="form-group">
+                  <label for="projectId">Project ID</label>
+                  <input type="text" id="projectId" name="projectId" placeholder="e.g., NBN-001, TEL-042">
+                </div>
+                <div class="form-group">
+                  <label for="owner">Owner</label>
+                  <input type="text" id="owner" name="owner" placeholder="Who's responsible?" required>
+                </div>
+                <div class="form-group">
+                  <label for="label">Label</label>
+                  <input type="text" id="label" name="label" placeholder="Task, Meeting, Report, etc.">
+                </div>
+                <div class="form-group">
+                  <label for="dueDate">Due Date</label>
+                  <input type="date" id="dueDate" name="dueDate">
+                </div>
+                <div class="form-group">
+                  <label for="priority">Priority</label>
+                  <select id="priority" name="priority">
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                  </select>
+                </div>
+              </form>
+
+              <div class="form-group" style="margin-top: 15px;">
+                <label for="notes">Notes</label>
+                <textarea id="notes" name="notes" placeholder="Additional details, requirements, or context..."></textarea>
+              </div>
+
+              <div style="display: flex; gap: 15px; margin-top: 20px;">
+                <button type="button" class="btn" id="addTaskBtn">➕ Add Task</button>
+                <button type="button" class="btn" id="cancelBtn" style="background: #6c757d;">✖️ Cancel</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="tasks-section">
+            <div class="filters">
+              <div class="filter-btn active" data-filter="all">All Tasks</div>
+              <div class="filter-btn" data-filter="pending">Pending</div>
+              <div class="filter-btn" data-filter="completed">Completed</div>
+              <div class="filter-btn" data-filter="overdue">Overdue</div>
+              <div class="filter-btn" data-filter="high">High Priority</div>
+              <div class="owner-filter">
+                <select class="owner-dropdown" id="ownerFilter">
+                  <option value="">All Owners</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="taskTable" class="task-table">
+              <div class="table-header">
+                <div>Task</div>
+                <div>Project ID</div>
+                <div>Notes</div>
+                <div>Owner</div>
+                <div>Label</div>
+                <div>Due Date</div>
+                <div>Status</div>
+                <div>Priority</div>
+                <div>Actions</div>
+              </div>
+              <div id="taskRows"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="recurring-tasks" class="tab-content">
+          <div class="add-task-section">
+            <div class="quick-add">
+              <input type="text" id="recurringTaskTitle" placeholder="What recurring task needs to be tracked? (start typing to add more details...)" autocomplete="off">
+            </div>
+
+            <div class="expanded-form" id="recurringExpandedForm">
+              <form class="task-form" id="recurringTaskForm">
+                <div class="form-group">
+                  <label for="recurringOwner">Owner</label>
+                  <input type="text" id="recurringOwner" name="recurringOwner" placeholder="Who's responsible?" required>
+                </div>
+                <div class="form-group">
+                  <label for="recurringCategory">Category</label>
+                  <select id="recurringCategory" name="recurringCategory">
+                    <option value="Task">Task</option>
+                    <option value="Meeting">Meeting</option>
+                    <option value="Report">Report</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="frequencyType">Frequency</label>
+                  <select id="frequencyType" name="frequencyType">
+                    <option value="weekly">Weekly</option>
+                    <option value="fortnightly">Fortnightly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="yearly">Yearly</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="frequencyValue">Every</label>
+                  <input type="number" id="frequencyValue" name="frequencyValue" min="1" value="1" placeholder="1">
+                </div>
+                <div class="form-group">
+                  <label for="lastCompleted">Last Completed</label>
+                  <input type="date" id="lastCompleted" name="lastCompleted">
+                </div>
+              </form>
+
+              <div class="form-group" style="margin-top: 15px;">
+                <label for="recurringDescription">Description</label>
+                <textarea id="recurringDescription" name="recurringDescription" placeholder="Additional details, requirements, or context..."></textarea>
+              </div>
+
+              <div style="display: flex; gap: 15px; margin-top: 20px;">
+                <button type="button" class="btn" id="addRecurringTaskBtn">➕ Add Recurring Task</button>
+                <button type="button" class="btn" id="cancelRecurringBtn" style="background: #6c757d;">✖️ Cancel</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="tasks-section">
+            <div class="view-toggle">
+              <button class="view-btn active" data-view="list">List View</button>
+              <button class="view-btn" data-view="calendar">Calendar View</button>
+            </div>
+
+            <div class="filters">
+              <div class="filter-btn active" data-filter="all">All Tasks</div>
+              <div class="filter-btn" data-filter="overdue">Overdue</div>
+              <div class="filter-btn" data-filter="due-soon">Due Soon</div>
+              <div class="filter-btn" data-filter="on-track">On Track</div>
+              <div class="owner-filter">
+                <select class="owner-dropdown" id="recurringOwnerFilter">
+                  <option value="">All Owners</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="recurringListView">
+              <div id="recurringTaskTable" class="task-table">
+                <div class="table-header">
+                  <div>Task</div>
+                  <div>Owner</div>
+                  <div>Category</div>
+                  <div>Frequency</div>
+                  <div>Last Completed</div>
+                  <div>Next Due</div>
+                  <div>Status</div>
+                  <div>Actions</div>
+                </div>
+                <div id="recurringTaskRows"></div>
+              </div>
+            </div>
+
+            <div id="recurringCalendarView" style="display: none;">
+              <div class="calendar-view">
+                <div class="calendar-header">
+                  <div class="calendar-nav">
+                    <button id="prevMonth">‹</button>
+                    <div class="calendar-title" id="calendarTitle">Loading...</div>
+                    <button id="nextMonth">›</button>
+                  </div>
+                  <button id="todayBtn" style="background: #667eea; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">Today</button>
+                </div>
+                <div class="calendar-grid" id="calendarGrid"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button class="floating-add-btn" id="floatingAddBtn">+</button>
+      `
+    };
+
+    class DateUtils {
+      static atStartOfDay(date) {
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      }
+
+      static formatDateLocal(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      }
+
+      static parseLocalDate(str) {
+        if (!str) return null;
+        const [y, m, d] = str.split('-').map(Number);
+        return new Date(y, m - 1, d);
+      }
+
+      static getTomorrow() {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        return tomorrow;
+      }
+
+      static formatDateForDisplay(dateStr) {
+        if (!dateStr) return 'No date';
+        return new Date(dateStr).toLocaleDateString('en-AU', { 
+          day: '2-digit', 
+          month: '2-digit', 
+          year: '2-digit' 
+        });
+      }
+
+      static getDateLabel(date) {
+        const today = new Date();
+        const tomorrow = new Date();
+        const yesterday = new Date();
+        
+        today.setHours(0, 0, 0, 0);
+        tomorrow.setHours(0, 0, 0, 0);
+        yesterday.setHours(0, 0, 0, 0);
+        tomorrow.setDate(today.getDate() + 1);
+        yesterday.setDate(today.getDate() - 1);
+
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);
+
+        if (d.getTime() === today.getTime()) return 'Today';
+        if (d.getTime() === tomorrow.getTime()) return 'Tomorrow';
+        if (d.getTime() === yesterday.getTime()) return 'Yesterday';
+        return d.toLocaleDateString('en-AU', { weekday: 'long' });
+      }
+    }
+
+    class ColorUtils {
+      static getOwnerColor(owner, ownerColors) {
+        if (!owner) return '#34495e';
+        
+        if (!ownerColors[owner]) {
+          let hash = 0;
+          for (let i = 0; i < owner.length; i++) {
+            hash = owner.charCodeAt(i) + ((hash << 5) - hash);
+          }
+          const idx = Math.abs(hash) % CONFIG.OWNER_COLORS.length;
+          ownerColors[owner] = CONFIG.OWNER_COLORS[idx];
+          localStorage.setItem('ownerColors', JSON.stringify(ownerColors));
+        }
+        return ownerColors[owner];
+      }
+    }
+
+    class DOMUtils {
+      static escapeHTML(str) {
+        if (str == null) return '';
+        return String(str).replace(/[&<>"'`=\/]/g, s => ({
+          '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+          '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;'
+        }[s]));
+      }
+
+      static getFormData(formId) {
+        const form = document.getElementById(formId);
+        if (!form) return {};
+        
+        const formData = new FormData(form);
+        const data = {};
+        for (const [key, value] of formData.entries()) {
+          data[key] = value;
+        }
+        return data;
+      }
+
+      static resetForm(formId, defaults = {}) {
+        const form = document.getElementById(formId);
+        if (!form) return;
+        
+        form.reset();
+        Object.entries(defaults).forEach(([key, value]) => {
+          const element = form.querySelector(`[name="${key}"], #${key}`);
+          if (element) element.value = value;
+        });
+      }
+
+      static toggleClass(element, className, condition) {
+        if (condition) {
+          element.classList.add(className);
+        } else {
+          element.classList.remove(className);
+        }
+      }
+
+      static updateDropdown(selectId, options, selectedValue = '') {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+
+        const currentValue = selectedValue || select.value;
+        select.innerHTML = '<option value="">All Owners</option>';
+        
+        options.forEach(option => {
+          const opt = document.createElement('option');
+          opt.value = option;
+          opt.textContent = option;
+          select.appendChild(opt);
+        });
+
+        if (options.includes(currentValue)) {
+          select.value = currentValue;
+          return currentValue;
+        } else {
+          select.classList.remove('active');
+          return '';
+        }
+      }
+    }
+
+    function initializeApp() {
+      let supabaseClient;
+      
+      try {
+        supabaseClient = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+      } catch (e) {
+        document.getElementById('app-content').innerHTML = `
+          <div class="error"><strong>Error:</strong> Failed to load Supabase. Please check your internet connection and refresh.</div>
+        `;
+        return;
+      }
+
+      document.getElementById('app-content').innerHTML = TEMPLATES.mainUI;
+      setTimeout(() => { 
+        window.taskManager = new TaskManager(supabaseClient); 
+      }, 50);
+    }
+
+    class TaskManager {
+      constructor(supabase) {
+        this.supabase = supabase;
+        this.state = {
+          tasks: [],
+          recurringTasks: [],
+          currentFilter: 'all',
+          selectedOwner: '',
+          recurringCurrentFilter: 'all',
+          recurringSelectedOwner: '',
+          activeTab: 'quick-tasks',
+          activeView: 'list',
+          currentDate: new Date(),
+          editingField: null,
+          editingMeta: null
+        };
+
+        this.ownerColors = JSON.parse(localStorage.getItem('ownerColors') || '{}');
+        this.eventsDelegated = { tasks: false, recurring: false };
+        
+        this.init();
+      }
+
+      async init() {
+        try {
+          await Promise.all([this.loadTasks(), this.loadRecurringTasks()]);
+          this.bindEvents();
+          this.bindTabEvents();
+          this.setDefaultDueDate();
+          this.bindGlobalEvents();
+        } catch (err) {
+          this.showError('Failed to connect to database. Please refresh.');
+        }
+      }
+
+      setDefaultDueDate() {
+        const dueDateField = document.getElementById('dueDate');
+        if (dueDateField) {
+          dueDateField.value = DateUtils.formatDateLocal(DateUtils.getTomorrow());
+        }
+      }
+
+      bindGlobalEvents() {
+        document.addEventListener('click', (e) => {
+          // Don't save if clicking on the select element itself or if it's already open
+          if (this.state.editingField && 
+              !e.target.closest('.editing-field') && 
+              !e.target.closest('select')) {
+            this.saveEdit();
+          }
+        });
+
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && this.state.editingField) this.cancelEdit();
+          if (e.key === 'Enter' && this.state.editingField && e.target.tagName !== 'TEXTAREA') {
+            this.saveEdit();
+          }
+        });
+      }
+
+      async loadTasks() {
+        const { data, error } = await this.supabase
+          .from('tasks')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          if (error.message?.includes('relation "tasks" does not exist')) return;
+          throw error;
+        }
+
+        this.state.tasks = (data || []).map(this.normalizeTask);
+        this.renderTasks();
+      }
+
+      async loadRecurringTasks() {
+        const { data, error } = await this.supabase
+          .from('recurring_tasks')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          if (error.message?.includes('relation "recurring_tasks" does not exist')) {
+            this.state.recurringTasks = [];
+            return;
+          }
+          throw error;
+        }
+
+        this.state.recurringTasks = (data || []).map(this.normalizeRecurringTask);
+        
+        if (this.state.activeTab === 'recurring-tasks') {
+          this.renderRecurringTasks();
+        }
+      }
+
+      normalizeTask(task) {
+        return {
+          id: Number(task.id),
+          task: String(task.task || ''),
+          projectId: String(task.project_id || ''),
+          notes: String(task.notes || ''),
+          owner: String(task.owner || ''),
+          label: String(task.label || 'Task'),
+          dueDate: task.due_date ? String(task.due_date) : '',
+          status: String(task.status || 'Not Started'),
+          priority: String(task.priority || 'Low'),
+          createdAt: task.created_at ? String(task.created_at) : ''
+        };
+      }
+
+      normalizeRecurringTask(task) {
+        return {
+          id: task.id,
+          title: task.title || '',
+          description: task.description || '',
+          owner: task.owner || '',
+          category: task.category || 'Task',
+          frequency_type: task.frequency_type || 'weekly',
+          frequency_value: task.frequency_value || 1,
+          last_completed: task.last_completed || null,
+          next_due: task.next_due || null,
+          created_at: task.created_at || ''
+        };
+      }
+
+      bindEvents() {
+        this.bindInputEvents();
+        this.bindButtonEvents();
+        this.bindFilterEvents();
+        this.bindTaskActions();
+      }
+
+      bindInputEvents() {
+        const quickTask = document.getElementById('quickTask');
+        const recurringTaskTitle = document.getElementById('recurringTaskTitle');
+
+        if (quickTask) {
+          ['input', 'focus'].forEach(event => {
+            quickTask.addEventListener(event, (e) => {
+              if (e.target.value.length > 0) this.expandForm();
+            });
+          });
+        }
+
+        if (recurringTaskTitle) {
+          ['input', 'focus'].forEach(event => {
+            recurringTaskTitle.addEventListener(event, (e) => {
+              if (e.target.value.length > 0) this.expandRecurringForm();
+            });
+          });
+        }
+      }
+
+      bindButtonEvents() {
+        const buttonBindings = [
+          { id: 'addTaskBtn', handler: () => this.addTask() },
+          { id: 'cancelBtn', handler: () => this.cancelAdd() },
+          { id: 'addRecurringTaskBtn', handler: () => this.addRecurringTask() },
+          { id: 'cancelRecurringBtn', handler: () => this.cancelRecurringAdd() },
+          { id: 'floatingAddBtn', handler: () => this.handleFloatingAdd() }
+        ];
+
+        buttonBindings.forEach(({ id, handler }) => {
+          const element = document.getElementById(id);
+          if (element) element.addEventListener('click', handler);
+        });
+      }
+
+      bindFilterEvents() {
+        document.querySelectorAll('#quick-tasks .filter-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => this.setFilter(e.target.dataset.filter));
+        });
+
+        document.querySelectorAll('#recurring-tasks .filter-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => this.setRecurringFilter(e.target.dataset.filter));
+        });
+
+        const ownerFilter = document.getElementById('ownerFilter');
+        const recurringOwnerFilter = document.getElementById('recurringOwnerFilter');
+        
+        if (ownerFilter) {
+          ownerFilter.addEventListener('change', (e) => this.setOwnerFilter(e.target.value));
+        }
+        if (recurringOwnerFilter) {
+          recurringOwnerFilter.addEventListener('change', (e) => this.setRecurringOwnerFilter(e.target.value));
+        }
+      }
+
+      bindTaskActions() {
+        if (!this.eventsDelegated.tasks) {
+          const taskRows = document.getElementById('taskRows');
+          if (taskRows) {
+            taskRows.addEventListener('click', this.handleTaskAction.bind(this));
+            this.eventsDelegated.tasks = true;
+          }
+        }
+
+        if (!this.eventsDelegated.recurring) {
+          const recurringRows = document.getElementById('recurringTaskRows');
+          if (recurringRows) {
+            recurringRows.addEventListener('click', this.handleRecurringTaskAction.bind(this));
+            this.eventsDelegated.recurring = true;
+          }
+        }
+      }
+
+      handleTaskAction(e) {
+        const btn = e.target.closest('.btn-delete, .btn-complete');
+        if (!btn) return;
+
+        const id = parseInt(btn.dataset.id, 10);
+        if (Number.isNaN(id)) return;
+
+        if (btn.classList.contains('btn-delete')) {
+          this.deleteTask(id);
+        } else {
+          this.toggleComplete(id);
+        }
+      }
+
+      handleRecurringTaskAction(e) {
+        const btn = e.target.closest('.btn-delete, .btn-complete');
+        if (!btn) return;
+
+        const id = parseInt(btn.dataset.id, 10);
+        if (Number.isNaN(id)) return;
+
+        if (btn.classList.contains('btn-delete')) {
+          this.deleteRecurringTask(id);
+        } else {
+          this.completeRecurringTask(id);
+        }
+      }
+
+      handleFloatingAdd() {
+        if (this.state.activeTab === 'quick-tasks') {
+          this.focusElement('quickTask');
+        } else {
+          this.focusElement('recurringTaskTitle');
+        }
+      }
+
+      focusElement(id) {
+        const element = document.getElementById(id);
+        if (element) {
+          element.focus();
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
+
+      bindTabEvents() {
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+          tab.addEventListener('click', (e) => this.switchTab(e.target.dataset.tab));
+        });
+
+        document.querySelectorAll('.view-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => this.switchView(e.target.dataset.view));
+        });
+
+        this.bindCalendarEvents();
+      }
+
+      bindCalendarEvents() {
+        const calendarBindings = [
+          { id: 'prevMonth', handler: () => this.navigateMonth(-1) },
+          { id: 'nextMonth', handler: () => this.navigateMonth(1) },
+          { id: 'todayBtn', handler: () => this.goToToday() }
+        ];
+
+        calendarBindings.forEach(({ id, handler }) => {
+          const element = document.getElementById(id);
+          if (element) element.addEventListener('click', handler);
+        });
+      }
+
+      navigateMonth(direction) {
+        this.state.currentDate.setMonth(this.state.currentDate.getMonth() + direction);
+        this.renderCalendar();
+      }
+
+      goToToday() {
+        this.state.currentDate = new Date();
+        this.renderCalendar();
+      }
+
+      switchTab(tabName) {
+        this.updateActiveElements('.nav-tab', `[data-tab="${tabName}"]`);
+        this.updateActiveElements('.tab-content', `#${tabName}`);
+        
+        this.state.activeTab = tabName;
+        
+        if (tabName === 'recurring-tasks') {
+          this.renderRecurringTasks();
+          if (this.state.activeView === 'calendar') {
+            this.renderCalendar();
+          }
+        } else {
+          this.renderTasks();
+        }
+      }
+
+      switchView(viewName) {
+        this.updateActiveElements('.view-btn', `[data-view="${viewName}"]`);
+        
+        const listView = document.getElementById('recurringListView');
+        const calendarView = document.getElementById('recurringCalendarView');
+        
+        if (viewName === 'list') {
+          listView.style.display = 'block';
+          calendarView.style.display = 'none';
+        } else {
+          listView.style.display = 'none';
+          calendarView.style.display = 'block';
+          this.renderCalendar();
+        }
+        
+        this.state.activeView = viewName;
+      }
+
+      updateActiveElements(selector, activeSelector) {
+        document.querySelectorAll(selector).forEach(el => el.classList.remove('active'));
+        const activeElement = document.querySelector(activeSelector);
+        if (activeElement) activeElement.classList.add('active');
+      }
+
+      expandForm() {
+        const form = document.getElementById('expandedForm');
+        if (form) form.classList.add('show');
+      }
+
+      expandRecurringForm() {
+        const form = document.getElementById('recurringExpandedForm');
+        if (form) form.classList.add('show');
+      }
+
+      cancelAdd() {
+        this.resetAndCollapseForm();
+      }
+
+      cancelRecurringAdd() {
+        this.resetAndCollapseRecurringForm();
+      }
+
+      resetAndCollapseForm() {
+        const fields = ['quickTask', 'projectId', 'notes', 'owner', 'label', 'priority'];
+        this.resetFields(fields);
+        this.setDefaultDueDate();
+        this.collapseForm('expandedForm');
+      }
+
+      resetAndCollapseRecurringForm() {
+        const fields = [
+          'recurringTaskTitle', 'recurringOwner', 'recurringCategory', 
+          'frequencyType', 'lastCompleted', 'recurringDescription'
+        ];
+        this.resetFields(fields, { frequencyValue: '1' });
+        this.collapseForm('recurringExpandedForm');
+      }
+
+      resetFields(fieldIds, defaults = {}) {
+        fieldIds.forEach(id => {
+          const element = document.getElementById(id);
+          if (!element) return;
+          
+          if (defaults[id]) {
+            element.value = defaults[id];
+          } else if (element.tagName === 'SELECT') {
+            element.selectedIndex = 0;
+          } else {
+            element.value = '';
+          }
+        });
+      }
+
+      collapseForm(formId) {
+        const form = document.getElementById(formId);
+        if (form) form.classList.remove('show');
+      }
+
+      async addTask() {
+        const addBtn = document.getElementById('addTaskBtn');
+        if (!addBtn) return;
+
+        this.setButtonLoading(addBtn, 'Adding...');
+
+        const formData = this.getTaskFormData();
+        const validation = this.validateTaskForm(formData);
+        
+        if (!validation.isValid) {
+          alert(validation.message);
+          this.resetButton(addBtn, '➕ Add Task');
+          return;
+        }
+
+        try {
+          const { error } = await this.supabase.from('tasks').insert([formData.dbData]);
+          if (error) throw error;
+          
+          this.resetAndCollapseForm();
+          await this.loadTasks();
+        } catch (e) {
+          alert('Error adding task: ' + (e.message || 'Unknown error'));
+        } finally {
+          this.resetButton(addBtn, '➕ Add Task');
+        }
+      }
+
+      getTaskFormData() {
+        const getValue = (id) => document.getElementById(id)?.value?.trim() || '';
+        
+        return {
+          task: getValue('quickTask'),
+          projectId: getValue('projectId'),
+          notes: getValue('notes'),
+          owner: getValue('owner'),
+          label: getValue('label') || 'Task',
+          dueDate: getValue('dueDate'),
+          priority: getValue('priority') || 'Low',
+          dbData: {
+            task: getValue('quickTask'),
+            project_id: getValue('projectId') || null,
+            notes: getValue('notes') || null,
+            owner: getValue('owner'),
+            label: getValue('label') || 'Task',
+            due_date: getValue('dueDate') || null,
+            status: 'Not Started',
+            priority: getValue('priority') || 'Low'
+          }
+        };
+      }
+
+      validateTaskForm(formData) {
+        if (!formData.task) {
+          return { isValid: false, message: 'Please enter a task description' };
+        }
+        if (!formData.owner) {
+          return { isValid: false, message: 'Please enter a task owner' };
+        }
+        return { isValid: true };
+      }
+
+      async addRecurringTask() {
+        const addBtn = document.getElementById('addRecurringTaskBtn');
+        if (!addBtn) return;
+
+        this.setButtonLoading(addBtn, 'Adding...');
+
+        const formData = this.getRecurringTaskFormData();
+        const validation = this.validateRecurringTaskForm(formData);
+        
+        if (!validation.isValid) {
+          alert(validation.message);
+          this.resetButton(addBtn, '➕ Add Recurring Task');
+          return;
+        }
+
+        try {
+          const { error } = await this.supabase.from('recurring_tasks').insert([formData.dbData]);
+          if (error) throw error;
+          
+          this.resetAndCollapseRecurringForm();
+          await this.loadRecurringTasks();
+        } catch (e) {
+          alert('Error adding recurring task: ' + (e.message || 'Unknown error'));
+        } finally {
+          this.resetButton(addBtn, '➕ Add Recurring Task');
+        }
+      }
+
+      getRecurringTaskFormData() {
+        const getValue = (id) => document.getElementById(id)?.value?.trim() || '';
+        const getNumberValue = (id, defaultValue = 1) => {
+          const value = parseInt(document.getElementById(id)?.value, 10);
+          return Number.isFinite(value) && value >= 1 ? value : defaultValue;
+        };
+
+        const title = getValue('recurringTaskTitle');
+        const owner = getValue('recurringOwner');
+        const category = getValue('recurringCategory') || 'Task';
+        const frequencyType = getValue('frequencyType') || 'weekly';
+        const frequencyValue = getNumberValue('frequencyValue');
+        const lastCompleted = getValue('lastCompleted');
+        const description = getValue('recurringDescription');
+
+        let nextDue = null;
+        if (lastCompleted) {
+          const base = DateUtils.parseLocalDate(lastCompleted);
+          if (base && !Number.isNaN(base.getTime())) {
+            const next = new Date(base);
+            this.advanceDate(next, frequencyType, frequencyValue);
+            nextDue = DateUtils.formatDateLocal(next);
+          }
+        }
+
+        return {
+          title,
+          owner,
+          category,
+          frequencyType,
+          frequencyValue,
+          lastCompleted,
+          description,
+          dbData: {
+            title,
+            description: description || null,
+            owner,
+            category,
+            frequency_type: frequencyType,
+            frequency_value: frequencyValue,
+            last_completed: lastCompleted || null,
+            next_due: nextDue
+          }
+        };
+      }
+
+      validateRecurringTaskForm(formData) {
+        if (!formData.title) {
+          return { isValid: false, message: 'Please enter a task title' };
+        }
+        if (!formData.owner) {
+          return { isValid: false, message: 'Please enter a task owner' };
+        }
+        return { isValid: true };
+      }
+
+      advanceDate(date, frequencyType, frequencyValue) {
+        switch (frequencyType) {
+          case 'weekly':
+            date.setDate(date.getDate() + 7 * frequencyValue);
+            break;
+          case 'fortnightly':
+            date.setDate(date.getDate() + 14 * frequencyValue);
+            break;
+          case 'monthly':
+            date.setMonth(date.getMonth() + frequencyValue);
+            break;
+          case 'quarterly':
+            date.setMonth(date.getMonth() + 3 * frequencyValue);
+            break;
+          case 'yearly':
+            date.setFullYear(date.getFullYear() + frequencyValue);
+            break;
+        }
+      }
+
+      setButtonLoading(button, text) {
+        button.disabled = true;
+        button.textContent = text;
+      }
+
+      resetButton(button, text) {
+        button.disabled = false;
+        button.textContent = text;
+      }
+
+      setFilter(filter) {
+        this.state.currentFilter = filter;
+        this.updateActiveElements('#quick-tasks .filter-btn', `#quick-tasks [data-filter="${filter}"]`);
+        this.renderTasks();
+      }
+
+      setRecurringFilter(filter) {
+        this.state.recurringCurrentFilter = filter;
+        this.updateActiveElements('#recurring-tasks .filter-btn', `#recurring-tasks [data-filter="${filter}"]`);
+        this.renderRecurringTasks();
+      }
+
+      setOwnerFilter(owner) {
+        this.state.selectedOwner = owner;
+        this.updateOwnerDropdownState('ownerFilter', owner);
+        this.renderTasks();
+      }
+
+      setRecurringOwnerFilter(owner) {
+        this.state.recurringSelectedOwner = owner;
+        this.updateOwnerDropdownState('recurringOwnerFilter', owner);
+        this.renderRecurringTasks();
+      }
+
+      updateOwnerDropdownState(dropdownId, owner) {
+        const dropdown = document.getElementById(dropdownId);
+        if (dropdown) {
+          DOMUtils.toggleClass(dropdown, 'active', !!owner);
+        }
+      }
+
+      updateOwnerDropdown() {
+        const owners = [...new Set(this.state.tasks.map(t => t.owner).filter(Boolean))].sort();
+        this.state.selectedOwner = DOMUtils.updateDropdown('ownerFilter', owners, this.state.selectedOwner);
+      }
+
+      updateRecurringOwnerDropdown() {
+        const owners = [...new Set(this.state.recurringTasks.map(t => t.owner).filter(Boolean))].sort();
+        this.state.recurringSelectedOwner = DOMUtils.updateDropdown('recurringOwnerFilter', owners, this.state.recurringSelectedOwner);
+      }
+
+      filterTasks() {
+        const nowMid = DateUtils.atStartOfDay(new Date());
+        
+        return this.state.tasks.filter(task => {
+          let filterMatch = false;
+          
+          switch (this.state.currentFilter) {
+            case 'pending':
+              filterMatch = task.status === 'Pending' || task.status === 'Not Started' || task.status === 'In Progress' || task.status === 'Stuck' || task.status === 'Awaiting Response';
+              break;
+            case 'completed':
+              filterMatch = task.status === 'Completed';
+              break;
+            case 'overdue':
+              filterMatch = (task.status === 'Pending' || task.status === 'Not Started' || task.status === 'In Progress' || task.status === 'Stuck' || task.status === 'Awaiting Response') && task.dueDate &&
+                           DateUtils.atStartOfDay(new Date(task.dueDate)) < nowMid;
+              break;
+            case 'high':
+              filterMatch = task.priority === 'High';
+              break;
+            default:
+              filterMatch = task.status !== 'Completed';
+          }
+          
+          const ownerMatch = !this.state.selectedOwner || task.owner === this.state.selectedOwner;
+          return filterMatch && ownerMatch;
+        });
+      }
+
+      filterRecurringTasks() {
+        const nowMid = DateUtils.atStartOfDay(new Date());
+        const soonMid = new Date(nowMid);
+        soonMid.setDate(soonMid.getDate() + 7);
+
+        return this.state.recurringTasks.filter(task => {
+          const dueMid = task.next_due ? DateUtils.atStartOfDay(new Date(task.next_due)) : null;
+          const isOverdue = dueMid && dueMid < nowMid;
+          const isDueSoon = dueMid && dueMid <= soonMid;
+
+          let filterMatch = true;
+          
+          switch (this.state.recurringCurrentFilter) {
+            case 'overdue':
+              filterMatch = isOverdue;
+              break;
+            case 'due-soon':
+              filterMatch = isDueSoon && !isOverdue;
+              break;
+            case 'on-track':
+              filterMatch = !isOverdue && !isDueSoon;
+              break;
+          }
+          
+          const ownerMatch = !this.state.recurringSelectedOwner || task.owner === this.state.recurringSelectedOwner;
+          return filterMatch && ownerMatch;
+        });
+      }
+
+      groupTasksByDate(tasks) {
+        const todayMid = DateUtils.atStartOfDay(new Date());
+        
+        const sorted = [...tasks].sort((a, b) => {
+          const getDate = (task) => task.dueDate ? DateUtils.parseLocalDate(task.dueDate) : new Date('9999-12-31');
+          const aDate = getDate(a);
+          const bDate = getDate(b);
+          const aOverdue = a.dueDate && DateUtils.atStartOfDay(aDate) < todayMid && a.status !== 'Completed';
+          const bOverdue = b.dueDate && DateUtils.atStartOfDay(bDate) < todayMid && b.status !== 'Completed';
+          
+          if (aOverdue && !bOverdue) return -1;
+          if (!aOverdue && bOverdue) return 1;
+          return aDate - bDate;
+        });
+
+        const grouped = {};
+        sorted.forEach(task => {
+          const key = task.dueDate ? DateUtils.formatDateLocal(DateUtils.parseLocalDate(task.dueDate)) : 'no-date';
+          if (!grouped[key]) grouped[key] = [];
+          grouped[key].push(task);
+        });
+
+        return Object.entries(grouped).map(([key, tasks]) => {
+          let date = null;
+          let isOverdue = false;
+          
+          if (key !== 'no-date') {
+            date = DateUtils.parseLocalDate(key);
+            isOverdue = DateUtils.atStartOfDay(date) < todayMid && 
+                       tasks.some(task => task.status !== 'Completed');
+          }
+          
+          return { date, tasks, isOverdue };
+        }).sort((a, b) => {
+          if (a.date === null) return 1;
+          if (b.date === null) return -1;
+          if (a.isOverdue && !b.isOverdue) return -1;
+          if (!a.isOverdue && b.isOverdue) return 1;
+          return a.date - b.date;
+        });
+      }
+
+      groupRecurringTasksByDate(tasks) {
+        const todayMid = DateUtils.atStartOfDay(new Date());
+        const soonMid = new Date(todayMid);
+        soonMid.setDate(soonMid.getDate() + 7);
+        
+        const sorted = [...tasks].sort((a, b) => {
+          const getDate = (task) => task.next_due ? DateUtils.parseLocalDate(task.next_due) : new Date('9999-12-31');
+          const aDate = getDate(a);
+          const bDate = getDate(b);
+          
+          // Prioritize overdue tasks
+          const aOverdue = a.next_due && DateUtils.atStartOfDay(aDate) < todayMid;
+          const bOverdue = b.next_due && DateUtils.atStartOfDay(bDate) < todayMid;
+          
+          if (aOverdue && !bOverdue) return -1;
+          if (!aOverdue && bOverdue) return 1;
+          return aDate - bDate;
+        });
+
+        const grouped = {};
+        sorted.forEach(task => {
+          const key = task.next_due ? DateUtils.formatDateLocal(DateUtils.parseLocalDate(task.next_due)) : 'no-date';
+          if (!grouped[key]) grouped[key] = [];
+          grouped[key].push(task);
+        });
+
+        return Object.entries(grouped).map(([key, tasks]) => {
+          let date = null;
+          let status = 'on-track';
+          
+          if (key !== 'no-date') {
+            date = DateUtils.parseLocalDate(key);
+            const dateMid = DateUtils.atStartOfDay(date);
+            
+            if (dateMid < todayMid) {
+              status = 'overdue';
+            } else if (dateMid <= soonMid) {
+              status = 'due-soon';
+            }
+          }
+          
+          return { date, tasks, status };
+        }).sort((a, b) => {
+          if (a.date === null) return 1;
+          if (b.date === null) return -1;
+          if (a.status === 'overdue' && b.status !== 'overdue') return -1;
+          if (a.status !== 'overdue' && b.status === 'overdue') return 1;
+          return a.date - b.date;
+        });
+      }
+
+      renderRecurringDateHeader(date, count, status) {
+        if (date === null) {
+          return `<div class="date-header">No Due Date | ${count} task${count !== 1 ? 's' : ''}</div>`;
+        }
+
+        const label = DateUtils.getDateLabel(date);
+        const pretty = date.toLocaleDateString('en-AU', { 
+          day: 'numeric', 
+          month: 'short', 
+          year: 'numeric' 
+        });
+
+        return `<div class="date-header">${label} | ${pretty} | ${count} task${count !== 1 ? 's' : ''}</div>`;
+      }
+
+      bindInlineEdit() {
+        if (window.innerWidth > 768) {
+          document.querySelectorAll('.editable-field').forEach(element => {
+            element.addEventListener('click', (e) => this.startEdit(e.currentTarget));
+          });
+        }
+      }
+
+      renderEmptyState(type) {
+        const messages = {
+          tasks: {
+            title: 'No tasks found!',
+            description: `Try adjusting your filters${this.state.selectedOwner ? ' for ' + DOMUtils.escapeHTML(this.state.selectedOwner) : ''} or add some new tasks.`
+          },
+          recurring: {
+            title: 'No recurring tasks yet!',
+            description: 'Add your first recurring task above to start tracking your regular schedule.'
+          }
+        };
+
+        const message = messages[type];
+        return `
+          <div class="empty-state">
+            <h3>${message.title}</h3>
+            <p>${message.description}</p>
+          </div>
+        `;
+      }
+
+      renderDateHeader(date, count, isOverdue) {
+        if (date === null) {
+          return `<div class="date-header">No Due Date | ${count} task${count !== 1 ? 's' : ''}</div>`;
+        }
+
+        const label = DateUtils.getDateLabel(date);
+        const pretty = date.toLocaleDateString('en-AU', { 
+          day: 'numeric', 
+          month: 'short', 
+          year: 'numeric' 
+        });
+
+        return `<div class="date-header">${label} | ${pretty} | ${count} task${count !== 1 ? 's' : ''}</div>`;
+      }
+
+      renderTasks() {
+        this.updateOwnerDropdown();
+        const container = document.getElementById('taskRows');
+        if (!container) return;
+
+        const filteredTasks = this.filterTasks();
+        
+        if (filteredTasks.length === 0) {
+          container.innerHTML = this.renderEmptyState('tasks');
+          return;
+        }
+
+        const groups = this.groupTasksByDate(filteredTasks);
+        const html = groups.map(group => 
+          this.renderDateHeader(group.date, group.tasks.length, group.isOverdue) +
+          group.tasks.map(task => this.renderTask(task)).join('')
+        ).join('');
+        
+        container.innerHTML = html;
+        this.bindInlineEdit();
+      }
+
+      renderRecurringTasks() {
+        this.updateRecurringOwnerDropdown();
+        const container = document.getElementById('recurringTaskRows');
+        if (!container) return;
+
+        const filteredTasks = this.filterRecurringTasks();
+        
+        if (filteredTasks.length === 0) {
+          container.innerHTML = this.renderEmptyState('recurring');
+          return;
+        }
+
+        const groups = this.groupRecurringTasksByDate(filteredTasks);
+        const html = groups.map(group => 
+          this.renderRecurringDateHeader(group.date, group.tasks.length, group.status) +
+          group.tasks.map(task => this.renderRecurringTask(task)).join('')
+        ).join('');
+        
+        container.innerHTML = html;
+      }
+
+      renderTask(task) {
+        const nowMid = DateUtils.atStartOfDay(new Date());
+        const dueMid = task.dueDate ? DateUtils.atStartOfDay(new Date(task.dueDate)) : null;
+        const overdue = task.status !== 'Completed' && dueMid && dueMid < nowMid;
+        
+        const formatted = DateUtils.formatDateForDisplay(task.dueDate);
+        const ownerColor = ColorUtils.getOwnerColor(task.owner, this.ownerColors);
+        
+        const priorityColors = {
+          high: '#dc3545',
+          medium: '#ffc107',
+          low: '#28a745'
+        };
+        const priorityColor = priorityColors[task.priority.toLowerCase()] || '#6c757d';
+        
+        const rowClasses = [
+          'task-row',
+          `priority-${task.priority.toLowerCase()}`,
+          task.status.toLowerCase() === 'completed' ? 'completed-task' : '',
+          overdue ? 'overdue' : ''
+        ].filter(Boolean).join(' ');
+
+        // Map status to CSS class
+        const statusClass = 'status-' + task.status.toLowerCase().replace(/\s+/g, '-');
+
+        // Escape all user input
+        const safeValues = {
+          title: DOMUtils.escapeHTML(task.task),
+          owner: DOMUtils.escapeHTML(task.owner),
+          label: DOMUtils.escapeHTML(task.label),
+          notes: DOMUtils.escapeHTML(task.notes || '-'),
+          notesTitle: DOMUtils.escapeHTML(task.notes || 'Click to add notes'),
+          project: DOMUtils.escapeHTML(task.projectId || '-'),
+          status: DOMUtils.escapeHTML(task.status),
+          priority: DOMUtils.escapeHTML(task.priority)
+        };
+
+        if (window.innerWidth <= 768) {
+          return this.renderMobileTask(task, safeValues, priorityColor, ownerColor, formatted, overdue);
+        }
+
+        return this.renderDesktopTask(task, safeValues, priorityColor, ownerColor, formatted, rowClasses, statusClass);
+      }
+
+      renderMobileTask(task, safeValues, priorityColor, ownerColor, formatted, overdue) {
+        return `
+          <div class="task-row priority-${task.priority.toLowerCase()} ${task.status.toLowerCase() === 'completed' ? 'completed-task' : ''} ${overdue ? 'overdue' : ''}" 
+               style="border-left: 4px solid ${priorityColor};">
+            <div class="mobile-task-header">
+              <div class="mobile-task-title">${safeValues.title}</div>
+              <div class="mobile-priority-badge priority-${task.priority.toLowerCase()}">${safeValues.priority}</div>
+            </div>
+            <div class="mobile-task-meta">
+              <div class="mobile-meta-item">
+                <div class="mobile-meta-label">Owner:</div>
+                <div class="mobile-meta-value" style="color:${ownerColor};font-weight:600;">${safeValues.owner}</div>
+              </div>
+              <div class="mobile-meta-item">
+                <div class="mobile-meta-label">Due:</div>
+                <div class="mobile-meta-value mobile-due-date ${overdue ? 'overdue' : ''}">${formatted}</div>
+              </div>
+              <div class="mobile-meta-item">
+                <div class="mobile-meta-label">Project:</div>
+                <div class="mobile-meta-value">${safeValues.project}</div>
+              </div>
+              <div class="mobile-meta-item">
+                <div class="mobile-meta-label">Status:</div>
+                <div class="mobile-meta-value">${safeValues.status}</div>
+              </div>
+            </div>
+            ${task.notes ? `<div class="mobile-task-notes">${safeValues.notes}</div>` : ''}
+            <div class="mobile-task-actions">
+              <button class="btn-small btn-complete" data-id="${task.id}" 
+                      title="${task.status === 'Completed' ? 'Mark as not started' : 'Mark as complete'}">
+                ${task.status === 'Completed' ? '↻' : '✔'}
+              </button>
+              <button class="btn-small btn-delete" data-id="${task.id}" title="Delete task">✕</button>
+            </div>
+          </div>
+        `;
+      }
+
+      renderDesktopTask(task, safeValues, priorityColor, ownerColor, formatted, rowClasses, statusClass) {
+        return `
+          <div class="${rowClasses}" style="border-left-color:${priorityColor};">
+            <div class="priority-indicator"></div>
+            <div class="task-title editable-field" data-task-id="${task.id}" data-field-type="task" title="Click to edit">${safeValues.title}</div>
+            <div class="project-id editable-field" data-task-id="${task.id}" data-field-type="projectId" title="Click to edit">${safeValues.project}</div>
+            <div class="task-notes editable-field" data-task-id="${task.id}" data-field-type="notes" title="${safeValues.notesTitle}">${safeValues.notes}</div>
+            <div class="task-owner editable-field" data-task-id="${task.id}" data-field-type="owner" title="Click to edit" style="color:${ownerColor};font-weight:600;">${safeValues.owner}</div>
+            <div class="task-label editable-field" data-task-id="${task.id}" data-field-type="label" title="Click to edit">${safeValues.label}</div>
+            <div class="due-date editable-field" data-task-id="${task.id}" data-field-type="dueDate" title="Click to edit">${formatted}</div>
+            <div class="task-status ${statusClass} editable-field" data-task-id="${task.id}" data-field-type="status" title="Click to edit">${safeValues.status}</div>
+            <div class="task-priority editable-field" data-task-id="${task.id}" data-field-type="priority" title="Click to edit">${safeValues.priority}</div>
+            <div class="task-actions">
+              <button class="btn-small btn-complete" data-id="${task.id}" 
+                      title="${task.status === 'Completed' ? 'Mark as not started' : 'Mark as complete'}">
+                ${task.status === 'Completed' ? '↻' : '✔'}
+              </button>
+              <button class="btn-small btn-delete" data-id="${task.id}" title="Delete task">✕</button>
+            </div>
+          </div>
+        `;
+      }
+
+      renderRecurringTask(task) {
+        const nowMid = DateUtils.atStartOfDay(new Date());
+        const dueMid = task.next_due ? DateUtils.atStartOfDay(new Date(task.next_due)) : null;
+        const lastCompleted = task.last_completed ? DateUtils.parseLocalDate(task.last_completed).toLocaleDateString('en-AU') : 'Never';
+        const nextDueFormatted = dueMid ? dueMid.toLocaleDateString('en-AU') : 'Not set';
+
+        let status = 'on-track';
+        let statusText = 'On Track';
+        let rowStyle = '';
+        
+        if (dueMid) {
+          if (dueMid < nowMid) {
+            status = 'overdue';
+            const overdueDays = Math.floor((nowMid - dueMid) / (24 * 60 * 60 * 1000));
+            statusText = `Overdue ${overdueDays} day${overdueDays !== 1 ? 's' : ''}`;
+            rowStyle = 'background: #fff5f5 !important; border-left: 4px solid #dc3545 !important;';
+          } else {
+            const soonMid = new Date(nowMid);
+            soonMid.setDate(soonMid.getDate() + 7);
+            if (dueMid <= soonMid) {
+              status = 'due-soon';
+              statusText = 'Due Soon';
+            }
+          }
+        }
+
+        const ownerColor = ColorUtils.getOwnerColor(task.owner, this.ownerColors);
+        const freqText = `${task.frequency_value > 1 ? `Every ${task.frequency_value} ` : ''}${task.frequency_type}`;
+
+        const safeValues = {
+          title: DOMUtils.escapeHTML(task.title),
+          owner: DOMUtils.escapeHTML(task.owner),
+          category: DOMUtils.escapeHTML(task.category)
+        };
+
+        return `
+          <div class="task-row recurring-task-${status}" style="${rowStyle}">
+            <div class="task-title">${safeValues.title}</div>
+            <div class="task-owner" style="color:${ownerColor};font-weight:600;">${safeValues.owner}</div>
+            <div class="task-category">${safeValues.category}</div>
+            <div class="task-frequency">${freqText}</div>
+            <div class="last-completed">${lastCompleted}</div>
+            <div class="next-due ${status === 'overdue' ? 'overdue' : ''}">${nextDueFormatted}</div>
+            <div class="task-status status-${status}">${statusText}</div>
+            <div class="task-actions">
+              <button class="btn-small btn-complete" data-id="${task.id}" title="Mark as completed">✔</button>
+              <button class="btn-small btn-delete" data-id="${task.id}" title="Delete recurring task">✕</button>
+            </div>
+          </div>
+        `;
+      }
+
+      async deleteTask(id) {
+        if (!confirm('Are you sure you want to delete this task?')) return;
+        
+        try {
+          const { error } = await this.supabase.from('tasks').delete().eq('id', id);
+          if (error) throw error;
+          await this.loadTasks();
+        } catch (e) {
+          alert('Error deleting task: ' + (e.message || 'Unknown error'));
+        }
+      }
+
+      async deleteRecurringTask(id) {
+        if (!confirm('Are you sure you want to delete this recurring task?')) return;
+        
+        try {
+          const { error } = await this.supabase.from('recurring_tasks').delete().eq('id', id);
+          if (error) throw error;
+          await this.loadRecurringTasks();
+        } catch (e) {
+          alert('Error deleting recurring task: ' + (e.message || 'Unknown error'));
+        }
+      }
+
+      async toggleComplete(id) {
+        const task = this.state.tasks.find(t => t.id === id);
+        if (!task) return;
+
+        const newStatus = task.status === 'Completed' ? 'Not Started' : 'Completed';
+        
+        try {
+          const { error } = await this.supabase.from('tasks').update({ status: newStatus }).eq('id', id);
+          if (error) throw error;
+          await this.loadTasks();
+        } catch (e) {
+          alert('Error updating task: ' + (e.message || 'Unknown error'));
+        }
+      }
+
+      async completeRecurringTask(id) {
+        const task = this.state.recurringTasks.find(t => t.id === id);
+        if (!task) return;
+
+        const todayStr = DateUtils.formatDateLocal(new Date());
+        const nextDate = new Date();
+        this.advanceDate(nextDate, task.frequency_type, task.frequency_value);
+
+        const updateData = {
+          last_completed: todayStr,
+          next_due: DateUtils.formatDateLocal(nextDate)
+        };
+
+        try {
+          const { error } = await this.supabase.from('recurring_tasks').update(updateData).eq('id', id);
+          if (error) throw error;
+          await this.loadRecurringTasks();
+        } catch (e) {
+          alert('Error updating recurring task: ' + (e.message || 'Unknown error'));
+        }
+      }
+
+      startEdit(target) {
+        // If clicking on the same field that's already being edited, don't restart
+        if (this.state.editingField === target) return;
+        
+        // Save any other field that was being edited
+        if (this.state.editingField) this.saveEdit();
+        
+        this.state.editingField = target;
+        const taskId = Number(target.dataset.taskId);
+        const field = target.dataset.fieldType;
+        const currentValue = target.textContent === '-' ? '' : target.textContent;
+        
+        target.classList.add('editing-field');
+
+        const inputElement = this.createEditInput(field, currentValue, taskId);
+        target.innerHTML = '';
+        target.appendChild(inputElement);
+        
+        // For select elements, set focus but don't auto-open
+        if (inputElement.tagName === 'SELECT') {
+          // Add change event listener to save immediately on selection
+          inputElement.addEventListener('change', () => {
+            this.saveEdit();
+          });
+          // Use setTimeout to prevent immediate triggering
+          setTimeout(() => inputElement.focus(), 0);
+        } else {
+          inputElement.focus();
+        }
+
+        this.state.editingMeta = { taskId, field, original: currentValue };
+      }
+
+      createEditInput(field, value, taskId) {
+        if (field === 'notes') {
+          const textarea = document.createElement('textarea');
+          textarea.className = 'edit-textarea';
+          textarea.value = value;
+          return textarea;
+        }
+
+        if (['status', 'priority'].includes(field)) {
+          const select = document.createElement('select');
+          select.className = 'edit-select';
+          
+          const options = {
+            status: ['Not Started', 'In Progress', 'Stuck', 'Awaiting Response', 'Completed'],
+            priority: ['Low', 'Medium', 'High']
+          }[field];
+
+          options.forEach(option => {
+            const opt = document.createElement('option');
+            opt.value = option;
+            opt.textContent = option;
+            if (option === value) opt.selected = true;
+            select.appendChild(opt);
+          });
+          
+          return select;
+        }
+
+        if (field === 'dueDate') {
+          const input = document.createElement('input');
+          input.type = 'date';
+          input.className = 'edit-input';
+          
+          const task = this.state.tasks.find(t => t.id === taskId);
+          input.value = task?.dueDate || '';
+          return input;
+        }
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'edit-input';
+        input.value = value;
+        return input;
+      }
+
+      async saveEdit() {
+        if (!this.state.editingField || !this.state.editingMeta) return;
+
+        const inputElement = this.state.editingField.querySelector('input, textarea, select');
+        const newValue = (inputElement?.value || '').trim();
+        const { taskId, field } = this.state.editingMeta;
+        
+        const task = this.state.tasks.find(t => t.id === taskId);
+        if (!task) return;
+
+        const updateData = this.prepareUpdateData(field, newValue, task);
+
+        try {
+          const { error } = await this.supabase.from('tasks').update(updateData).eq('id', taskId);
+          if (error) throw error;
+        } catch (e) {
+          alert('Error saving: ' + (e.message || 'Unknown error'));
+        }
+
+        this.finishEdit();
+      }
+
+      prepareUpdateData(field, newValue, task) {
+        const fieldMapping = {
+          projectId: { taskField: 'projectId', dbField: 'project_id' },
+          task: { taskField: 'task', dbField: 'task' },
+          notes: { taskField: 'notes', dbField: 'notes' },
+          owner: { taskField: 'owner', dbField: 'owner' },
+          label: { taskField: 'label', dbField: 'label' },
+          dueDate: { taskField: 'dueDate', dbField: 'due_date' },
+          status: { taskField: 'status', dbField: 'status' },
+          priority: { taskField: 'priority', dbField: 'priority' }
+        };
+
+        const mapping = fieldMapping[field];
+        if (!mapping) return {};
+
+        task[mapping.taskField] = newValue || (field === 'dueDate' ? '' : newValue);
+        return { [mapping.dbField]: newValue || null };
+      }
+
+      cancelEdit() {
+        if (!this.state.editingField) return;
+        this.finishEdit();
+      }
+
+      finishEdit() {
+        if (this.state.editingField) {
+          this.state.editingField.classList.remove('editing-field');
+        }
+        this.state.editingField = null;
+        this.state.editingMeta = null;
+        this.renderTasks();
+      }
+
+      renderCalendar() {
+        const grid = document.getElementById('calendarGrid');
+        const title = document.getElementById('calendarTitle');
+        if (!grid || !title) return;
+
+        const year = this.state.currentDate.getFullYear();
+        const month = this.state.currentDate.getMonth();
+
+        title.textContent = new Date(year, month).toLocaleDateString('en-AU', { 
+          month: 'long', 
+          year: 'numeric' 
+        });
+
+        const firstDay = new Date(year, month, 1);
+        const startDate = new Date(firstDay);
+        startDate.setDate(startDate.getDate() - firstDay.getDay());
+
+        let html = '';
+        
+        // Calendar headers
+        ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach(day => {
+          html += `<div class="calendar-day-header">${day}</div>`;
+        });
+
+        const todayMid = DateUtils.atStartOfDay(new Date());
+        const soonMid = new Date(todayMid);
+        soonMid.setDate(soonMid.getDate() + 7);
+
+        // Calendar days
+        for (let i = 0; i < 42; i++) {
+          const currentDay = new Date(startDate);
+          currentDay.setDate(startDate.getDate() + i);
+
+          const isCurrentMonth = currentDay.getMonth() === month;
+          const isToday = currentDay.toDateString() === new Date().toDateString();
+          const dateStr = DateUtils.formatDateLocal(currentDay);
+
+          const tasksOnDay = this.state.recurringTasks.filter(task => task.next_due === dateStr);
+
+          let dayClass = 'calendar-day';
+          if (!isCurrentMonth) dayClass += ' other-month';
+          if (isToday) dayClass += ' today';
+
+          const tasksHTML = tasksOnDay.map(task => {
+            const taskDate = DateUtils.atStartOfDay(new Date(task.next_due));
+            let taskClass = 'calendar-task ';
+            
+            if (taskDate < todayMid) {
+              taskClass += 'overdue';
+            } else if (taskDate <= soonMid) {
+              taskClass += 'due-soon';
+            } else {
+              taskClass += 'on-track';
+            }
+
+            const titleSafe = DOMUtils.escapeHTML(task.title);
+            return `<div class="${taskClass}" title="${titleSafe}">${titleSafe}</div>`;
+          }).join('');
+
+          html += `
+            <div class="${dayClass}">
+              <div class="calendar-day-number">${currentDay.getDate()}</div>
+              ${tasksHTML}
+            </div>
+          `;
+        }
+
+        grid.innerHTML = html;
+      }
+
+      showError(message) {
+        const container = document.getElementById('taskRows');
+        if (container) {
+          container.innerHTML = `
+            <div class="error">
+              <strong>Error:</strong> ${DOMUtils.escapeHTML(message)}
+            </div>
+          `;
+        }
+      }
+    }
+
+    // Initialize app
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initializeApp);
+    } else {
+      initializeApp();
+    }
+  </script>
+</body>
+</html>
