@@ -11,7 +11,9 @@
  * Env vars (all optional — falls back to manual mode):
  *   BYDA_PROVIDER       - "smarterwx" or "manual" (default: manual)
  *   BYDA_API_URL        - SmarterWX API endpoint
- *   BYDA_API_KEY        - SmarterWX API key
+ *   BYDA_CLIENT_ID      - SmarterWX client ID
+ *   BYDA_CLIENT_SECRET  - SmarterWX client secret
+ *   BYDA_API_KEY        - SmarterWX API key (alternative to client ID/secret)
  *   BYDA_AUTO_LODGE     - "true" to auto-lodge on job creation (default: false)
  *   BYDA_EXPIRY_DAYS    - Days until an enquiry expires (default: 28)
  *   BYDA_REUSE_OVERLAP  - Min polygon overlap % for reuse (default: 70)
@@ -26,6 +28,8 @@ const crypto = require('crypto');
 const CONFIG = {
   provider: process.env.BYDA_PROVIDER || 'manual',
   apiUrl: process.env.BYDA_API_URL || '',
+  clientId: process.env.BYDA_CLIENT_ID || '',
+  clientSecret: process.env.BYDA_CLIENT_SECRET || '',
   apiKey: process.env.BYDA_API_KEY || '',
   autoLodge: process.env.BYDA_AUTO_LODGE === 'true',
   expiryDays: parseInt(process.env.BYDA_EXPIRY_DAYS) || 28,
@@ -33,8 +37,20 @@ const CONFIG = {
   geocodeApiKey: process.env.GEOCODE_API_KEY || ''
 };
 
+function hasCredentials() {
+  return (CONFIG.clientId && CONFIG.clientSecret) || CONFIG.apiKey;
+}
+
 function isApiConfigured() {
-  return CONFIG.provider === 'smarterwx' && CONFIG.apiUrl && CONFIG.apiKey;
+  return CONFIG.provider === 'smarterwx' && CONFIG.apiUrl && hasCredentials();
+}
+
+function getAuthHeader() {
+  if (CONFIG.clientId && CONFIG.clientSecret) {
+    const encoded = Buffer.from(`${CONFIG.clientId}:${CONFIG.clientSecret}`).toString('base64');
+    return `Basic ${encoded}`;
+  }
+  return `Bearer ${CONFIG.apiKey}`;
 }
 
 // ── Polygon Utilities ──
@@ -312,7 +328,7 @@ async function lodgeViaSmarterWX(data) {
   const res = await fetch(CONFIG.apiUrl + '/enquiries', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${CONFIG.apiKey}`,
+      'Authorization': getAuthHeader(),
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(payload)
