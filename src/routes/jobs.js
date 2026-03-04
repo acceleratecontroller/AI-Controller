@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDb, generateJobNumber } = require('../models/database');
+const servicem8 = require('../services/servicem8');
 
 // Get all jobs (with optional status filter)
 router.get('/', (req, res) => {
@@ -115,9 +116,9 @@ router.put('/:id', (req, res) => {
 });
 
 // Change job status (the approval workflow)
-router.post('/:id/status', (req, res) => {
+router.post('/:id/status', async (req, res) => {
   const db = getDb();
-  const { status, changed_by = 'system', comment } = req.body;
+  const { status, changed_by = 'system', comment, servicem8_jobs: sm8Jobs } = req.body;
 
   const validTransitions = {
     draft: ['submitted'],
@@ -140,6 +141,26 @@ router.post('/:id/status', (req, res) => {
     });
   }
 
+  // On approval, create ServiceM8 job(s) — blocks approval if it fails
+  if (status === 'approved') {
+    if (servicem8.isConfigured()) {
+      try {
+        const result = await servicem8.createJobsForApproval(req.params.id, sm8Jobs || []);
+        if (result.errors.length > 0) {
+          return res.status(502).json({
+            error: 'ServiceM8 job creation failed — approval blocked',
+            servicem8_errors: result.errors,
+            created: result.created
+          });
+        }
+      } catch (err) {
+        return res.status(502).json({
+          error: `ServiceM8 integration error: ${err.message}`
+        });
+      }
+    }
+  }
+
   const extraFields = {};
   if (status === 'in_review') extraFields.reviewed_by = changed_by;
   if (status === 'approved') extraFields.approved_by = changed_by;
@@ -160,7 +181,19 @@ router.post('/:id/status', (req, res) => {
   ).run(req.params.id, `status_${status}`, changed_by, comment || `Status changed to ${status}`);
 
   const updated = db.prepare('SELECT * FROM jobs WHERE id = ?').get(req.params.id);
+
+  // Include ServiceM8 jobs in the response when approving
+  if (status === 'approved') {
+    updated.servicem8_jobs = servicem8.getServiceM8Jobs(req.params.id);
+  }
+
   res.json(updated);
+});
+
+// Get ServiceM8 jobs linked to a work order
+router.get('/:id/servicem8', (req, res) => {
+  const sm8Jobs = servicem8.getServiceM8Jobs(req.params.id);
+  res.json(sm8Jobs);
 });
 
 // Delete a job (only drafts)

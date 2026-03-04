@@ -356,6 +356,54 @@
     }
     .sp-badge.pending { background: #fff3cd; color: #856404; }
 
+    /* ServiceM8 Sub-jobs Modal */
+    .sm8-section { margin-top: 20px; }
+    .sm8-section h4 { font-size: 0.9rem; color: #2c3e50; margin-bottom: 10px; }
+    .sm8-option-row {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 14px; padding: 10px; background: #f8f9fa; border-radius: 8px;
+    }
+    .sm8-option-row label { font-size: 0.85rem; color: #333; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    .sm8-option-row input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+    .sm8-subjob-list { margin-top: 12px; }
+    .sm8-subjob-item {
+      border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px;
+      margin-bottom: 10px; background: #fff; position: relative;
+    }
+    .sm8-subjob-item .remove-btn {
+      position: absolute; top: 8px; right: 8px;
+      background: none; border: none; color: #e74c3c; cursor: pointer;
+      font-size: 1.2rem; line-height: 1;
+    }
+    .sm8-subjob-item .remove-btn:hover { color: #c0392b; }
+    .sm8-subjob-item input, .sm8-subjob-item textarea {
+      width: 100%; padding: 8px 10px; border: 2px solid #e9ecef;
+      border-radius: 6px; font-size: 0.85rem; margin-top: 4px;
+    }
+    .sm8-subjob-item input:focus, .sm8-subjob-item textarea:focus { outline: none; border-color: #667eea; }
+    .sm8-subjob-item textarea { resize: vertical; min-height: 50px; }
+    .sm8-subjob-item label { font-size: 0.75rem; font-weight: 600; color: #666; }
+    .sm8-subjob-num { font-weight: 700; color: #667eea; font-size: 0.8rem; margin-bottom: 8px; }
+    .sm8-add-btn {
+      background: none; border: 2px dashed #ccc; border-radius: 8px;
+      padding: 10px; width: 100%; cursor: pointer; color: #666;
+      font-size: 0.85rem; transition: all 0.2s;
+    }
+    .sm8-add-btn:hover { border-color: #667eea; color: #667eea; }
+    .sm8-badge {
+      font-size: 0.65rem; padding: 2px 6px; border-radius: 8px;
+      display: inline-block; margin-right: 4px;
+    }
+    .sm8-badge.synced { background: #d4edda; color: #155724; }
+    .sm8-badge.failed { background: #f8d7da; color: #721c24; }
+    .sm8-badge.pending { background: #fff3cd; color: #856404; }
+    .sm8-jobs-list { margin-top: 8px; }
+    .sm8-job-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 10px; border: 1px solid #eee; border-radius: 6px;
+      margin-bottom: 4px; font-size: 0.82rem;
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
       .sidebar { display: none; }
@@ -550,6 +598,46 @@
       </div>
       <div class="modal-body" id="detail-body"></div>
       <div class="modal-footer" id="detail-actions"></div>
+    </div>
+  </div>
+
+  <!-- ServiceM8 Approval Modal -->
+  <div class="modal-overlay" id="modal-sm8-approve">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Approve &amp; Create ServiceM8 Job(s)</h3>
+        <button class="modal-close" onclick="closeModal('modal-sm8-approve')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.85rem; color:#555; margin-bottom:14px;">
+          Approving this work order will create job(s) in ServiceM8. Choose how to proceed:
+        </p>
+
+        <div class="sm8-option-row">
+          <label>
+            <input type="checkbox" id="sm8-multi-toggle" onchange="toggleMultiJobUI()" />
+            Create multiple ServiceM8 jobs for this work order
+          </label>
+        </div>
+
+        <!-- Single job summary (shown by default) -->
+        <div id="sm8-single-summary" style="padding:12px; background:#f0f8f0; border-radius:8px; font-size:0.85rem;">
+          <strong>Single ServiceM8 job will be created with:</strong>
+          <div id="sm8-single-details" style="margin-top:6px; color:#555;"></div>
+        </div>
+
+        <!-- Multi-job builder (hidden by default) -->
+        <div id="sm8-multi-builder" style="display:none;">
+          <div class="sm8-subjob-list" id="sm8-subjob-list"></div>
+          <button class="sm8-add-btn" onclick="addSubJob()">+ Add Another ServiceM8 Job</button>
+        </div>
+
+        <div id="sm8-error-msg" style="display:none; margin-top:12px; padding:10px; background:#f8d7da; color:#721c24; border-radius:6px; font-size:0.85rem;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-sm8-approve')">Cancel</button>
+        <button class="btn btn-success" id="sm8-approve-btn" onclick="confirmApproval()">Approve &amp; Create</button>
+      </div>
     </div>
   </div>
 
@@ -761,9 +849,30 @@
       setupDropZone();
 
       // Build action buttons based on status
+      // Show ServiceM8 linked jobs if any exist
+      const sm8Jobs = await api(`/jobs/${id}/servicem8`);
+      if (sm8Jobs.length > 0) {
+        const sm8Html = `
+          <div class="sm8-section">
+            <h4>ServiceM8 Jobs (${sm8Jobs.length})</h4>
+            <div class="sm8-jobs-list">
+              ${sm8Jobs.map(s => `
+                <div class="sm8-job-row">
+                  <span class="sm8-badge ${s.status}">${s.status}</span>
+                  <strong>${esc(s.title)}</strong>
+                  ${s.servicem8_uuid ? `<span style="color:#999; font-size:0.72rem; margin-left:auto;">${esc(s.servicem8_uuid)}</span>` : ''}
+                  ${s.error_message ? `<span style="color:#e74c3c; font-size:0.72rem;">${esc(s.error_message)}</span>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+        document.getElementById('detail-body').insertAdjacentHTML('beforeend', sm8Html);
+      }
+
       const actions = getStatusActions(data);
       document.getElementById('detail-actions').innerHTML = actions
-        .map(a => `<button class="btn ${a.cls}" onclick="changeStatus(${data.id}, '${a.status}')">${a.label}</button>`)
+        .map(a => `<button class="btn ${a.cls}" onclick="changeStatus(${data.id}, '${a.status}'${a.action ? ", '" + a.action + "'" : ''})">${a.label}</button>`)
         .join('') + `<button class="btn btn-outline" onclick="closeModal('modal-job-detail')">Close</button>`;
 
       openModal('modal-job-detail');
@@ -774,7 +883,7 @@
         draft: [{ status: 'submitted', label: 'Submit for Review', cls: 'btn-primary' }],
         submitted: [{ status: 'in_review', label: 'Start Review', cls: 'btn-warning' }],
         in_review: [
-          { status: 'approved', label: 'Approve', cls: 'btn-success' },
+          { status: 'approved', label: 'Approve', cls: 'btn-success', action: 'openApprovalModal' },
           { status: 'rejected', label: 'Reject', cls: 'btn-danger' },
           { status: 'draft', label: 'Send Back to Draft', cls: 'btn-outline' }
         ],
@@ -790,7 +899,14 @@
       return map[job.status] || [];
     }
 
-    async function changeStatus(id, status) {
+    // Store the job being approved for the SM8 modal
+    let pendingApprovalJob = null;
+
+    async function changeStatus(id, status, action) {
+      if (action === 'openApprovalModal') {
+        openApprovalModal(id);
+        return;
+      }
       await api(`/jobs/${id}/status`, {
         method: 'POST',
         body: JSON.stringify({ status, changed_by: 'user' })
@@ -800,12 +916,171 @@
     }
 
     async function quickStatus(id, status) {
+      // For approval from review queue, also go through SM8 modal
+      if (status === 'approved') {
+        openApprovalModal(id);
+        return;
+      }
       await api(`/jobs/${id}/status`, {
         method: 'POST',
         body: JSON.stringify({ status, changed_by: 'user' })
       });
       loadReviewQueue();
       loadDashboard();
+    }
+
+    // ── ServiceM8 Approval Flow ──
+    let sm8SubJobCount = 0;
+
+    function openApprovalModal(jobId) {
+      const db = getDb ? null : null; // frontend only
+      // Fetch job data to populate the modal
+      api(`/jobs/${jobId}`).then(job => {
+        pendingApprovalJob = job;
+        sm8SubJobCount = 0;
+
+        // Reset UI
+        document.getElementById('sm8-multi-toggle').checked = false;
+        document.getElementById('sm8-single-summary').style.display = '';
+        document.getElementById('sm8-multi-builder').style.display = 'none';
+        document.getElementById('sm8-error-msg').style.display = 'none';
+        document.getElementById('sm8-approve-btn').disabled = false;
+        document.getElementById('sm8-approve-btn').textContent = 'Approve & Create';
+        document.getElementById('sm8-subjob-list').innerHTML = '';
+
+        // Show single job summary
+        document.getElementById('sm8-single-details').innerHTML = `
+          <div><strong>Title:</strong> ${esc(job.title)}</div>
+          <div><strong>Customer:</strong> ${esc(job.customer_name || '-')}</div>
+          <div><strong>Address:</strong> ${esc(job.site_address || '-')}</div>
+          <div><strong>Description:</strong> ${esc(job.description || 'No description')}</div>
+        `;
+
+        openModal('modal-sm8-approve');
+      });
+    }
+
+    function toggleMultiJobUI() {
+      const multi = document.getElementById('sm8-multi-toggle').checked;
+      document.getElementById('sm8-single-summary').style.display = multi ? 'none' : '';
+      document.getElementById('sm8-multi-builder').style.display = multi ? '' : 'none';
+
+      if (multi && sm8SubJobCount === 0) {
+        // Pre-populate with 2 blank sub-jobs
+        addSubJob();
+        addSubJob();
+      }
+    }
+
+    function addSubJob(title, description) {
+      sm8SubJobCount++;
+      const idx = sm8SubJobCount;
+      const list = document.getElementById('sm8-subjob-list');
+      const item = document.createElement('div');
+      item.className = 'sm8-subjob-item';
+      item.id = `sm8-subjob-${idx}`;
+      item.innerHTML = `
+        <button class="remove-btn" onclick="removeSubJob(${idx})" title="Remove">&times;</button>
+        <div class="sm8-subjob-num">ServiceM8 Job #${idx}</div>
+        <div style="margin-bottom:8px;">
+          <label>Title</label>
+          <input type="text" id="sm8-title-${idx}" value="${esc(title || '')}" placeholder="e.g. Phase 1 - Electrical rough-in" />
+        </div>
+        <div>
+          <label>Description</label>
+          <textarea id="sm8-desc-${idx}" placeholder="Description for this sub-job...">${esc(description || '')}</textarea>
+        </div>
+      `;
+      list.appendChild(item);
+      renumberSubJobs();
+    }
+
+    function removeSubJob(idx) {
+      const el = document.getElementById(`sm8-subjob-${idx}`);
+      if (el) el.remove();
+      renumberSubJobs();
+    }
+
+    function renumberSubJobs() {
+      const items = document.querySelectorAll('#sm8-subjob-list .sm8-subjob-item');
+      items.forEach((item, i) => {
+        const numEl = item.querySelector('.sm8-subjob-num');
+        if (numEl) numEl.textContent = `ServiceM8 Job #${i + 1}`;
+      });
+    }
+
+    async function confirmApproval() {
+      if (!pendingApprovalJob) return;
+
+      const btn = document.getElementById('sm8-approve-btn');
+      btn.disabled = true;
+      btn.textContent = 'Creating...';
+      document.getElementById('sm8-error-msg').style.display = 'none';
+
+      const isMulti = document.getElementById('sm8-multi-toggle').checked;
+      let sm8Jobs = [];
+
+      if (isMulti) {
+        const items = document.querySelectorAll('#sm8-subjob-list .sm8-subjob-item');
+        for (const item of items) {
+          const titleInput = item.querySelector('input[type="text"]');
+          const descInput = item.querySelector('textarea');
+          const title = titleInput ? titleInput.value.trim() : '';
+          const desc = descInput ? descInput.value.trim() : '';
+
+          if (!title) {
+            document.getElementById('sm8-error-msg').textContent = 'All sub-jobs need a title.';
+            document.getElementById('sm8-error-msg').style.display = '';
+            btn.disabled = false;
+            btn.textContent = 'Approve & Create';
+            return;
+          }
+          sm8Jobs.push({ title, description: desc });
+        }
+
+        if (sm8Jobs.length === 0) {
+          document.getElementById('sm8-error-msg').textContent = 'Add at least one sub-job or uncheck the multi-job option.';
+          document.getElementById('sm8-error-msg').style.display = '';
+          btn.disabled = false;
+          btn.textContent = 'Approve & Create';
+          return;
+        }
+      }
+
+      const body = {
+        status: 'approved',
+        changed_by: 'user'
+      };
+      if (sm8Jobs.length > 0) {
+        body.servicem8_jobs = sm8Jobs;
+      }
+
+      const res = await fetch(`/api/jobs/${pendingApprovalJob.id}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        const errMsg = data.error || 'Approval failed';
+        const details = data.servicem8_errors
+          ? data.servicem8_errors.map(e => `${e.title}: ${e.error}`).join('\n')
+          : '';
+        document.getElementById('sm8-error-msg').innerHTML =
+          `<strong>${esc(errMsg)}</strong>${details ? '<br><pre style="margin-top:6px;font-size:0.8rem;white-space:pre-wrap;">' + esc(details) + '</pre>' : ''}`;
+        document.getElementById('sm8-error-msg').style.display = '';
+        btn.disabled = false;
+        btn.textContent = 'Retry Approve & Create';
+        return;
+      }
+
+      // Success
+      closeModal('modal-sm8-approve');
+      closeModal('modal-job-detail');
+      pendingApprovalJob = null;
+      switchView(currentView);
     }
 
     // ── Excel Upload ──

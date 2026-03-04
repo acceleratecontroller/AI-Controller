@@ -34,6 +34,14 @@ draft → submitted → in_review → approved → in_progress → completed
 - **Manual sync trigger** — API endpoint to re-sync if needed
 - See [SharePoint Setup](#sharepoint-setup) below
 
+### ServiceM8 Integration
+- **Auto-create ServiceM8 jobs on approval** — when a work order is approved, job(s) are created in ServiceM8 via their API
+- **Blocking approval** — if ServiceM8 creation fails, the approval is blocked with an error message
+- **Multi-job splitting** — checkbox to split one work order into multiple ServiceM8 sub-jobs (e.g. different phases, trades, or floors)
+- **Sub-job builder modal** — add as many sub-jobs as needed, each with its own title and description; all other data (customer, address, date) inherits from the parent work order
+- **Linked job tracking** — ServiceM8 UUIDs stored and visible in the job detail view
+- See [ServiceM8 Setup](#servicem8-setup) below
+
 ### Bulk Import
 - **Excel/CSV upload** — import jobs from `.xlsx`, `.xls`, or `.csv` files
 - **Preview before import** — review mapped data before committing
@@ -94,6 +102,28 @@ Once configured, all new attachments auto-sync to SharePoint under `Work Orders/
 
 ---
 
+## ServiceM8 Setup
+
+ServiceM8 integration is required for job creation on approval.
+
+1. Get your API key from **ServiceM8 > Settings > API & Webhooks**
+2. Add to your `.env`:
+
+```env
+SERVICEM8_USERNAME=your-email@company.com
+SERVICEM8_API_KEY=your-servicem8-api-key
+```
+
+When configured, the approval flow will:
+- Show a confirmation modal before approving
+- Create one or more jobs in ServiceM8
+- Block the approval if the API call fails (so you can retry)
+- Store the ServiceM8 UUID for each created job
+
+Without ServiceM8 configured, approvals still work normally — they just skip the API call.
+
+---
+
 ## Project Structure
 
 ```
@@ -107,6 +137,7 @@ AI-Controller/
 │   │   ├── attachments.js     # File upload/download/delete API
 │   │   └── uploads.js         # Excel/CSV bulk import API
 │   ├── services/
+│   │   ├── servicem8.js       # ServiceM8 job creation API
 │   │   └── sharepoint.js      # Microsoft Graph SharePoint sync
 │   ├── middleware/             # (reserved)
 │   └── utils/                 # (reserved)
@@ -141,6 +172,13 @@ AI-Controller/
 | DELETE | `/api/jobs/:id/attachments/:aid` | Delete an attachment |
 | POST | `/api/jobs/:id/attachments/sync-sharepoint` | Trigger SharePoint sync |
 
+### ServiceM8
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/jobs/:id/servicem8` | List ServiceM8 jobs linked to a work order |
+
+> ServiceM8 jobs are created automatically during the approval status change (`POST /api/jobs/:id/status` with `status: "approved"`). Pass `servicem8_jobs: [{ title, description }, ...]` in the body to create multiple sub-jobs.
+
 ### Bulk Import
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -155,6 +193,5 @@ AI-Controller/
 - **Email notifications** — notify team members on status changes and assignments
 - **User authentication** — role-based access (admin, reviewer, field staff)
 - **Dashboard analytics** — job volume, turnaround times, status breakdown charts
-- **API integrations** — connect to external systems (CRM, accounting, scheduling)
 - **Mobile-friendly views** — optimized interface for field staff on tablets/phones
 - **PDF report generation** — export job details and history as printable reports
