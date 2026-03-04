@@ -75,7 +75,15 @@ router.post('/', (req, res) => {
   ).run(result.lastInsertRowid, 'created', created_by, `Job ${jobNumber} created via ${source}`);
 
   const job = db.prepare('SELECT * FROM jobs WHERE id = ?').get(result.lastInsertRowid);
-  res.status(201).json(job);
+
+  // Auto-assess BYDA requirement for new jobs
+  try {
+    const byda = require('../services/byda');
+    byda.assess(job.id);
+  } catch (e) { /* non-blocking */ }
+
+  const updatedJob = db.prepare('SELECT * FROM jobs WHERE id = ?').get(result.lastInsertRowid);
+  res.status(201).json(updatedJob);
 });
 
 // Update a job
@@ -87,7 +95,7 @@ router.put('/:id', (req, res) => {
   const fields = [
     'title', 'description', 'priority', 'customer_name', 'customer_email',
     'customer_phone', 'site_address', 'scheduled_date', 'assigned_to',
-    'estimated_hours', 'notes'
+    'estimated_hours', 'notes', 'byda_required', 'byda_status'
   ];
 
   const updates = [];

@@ -42,6 +42,20 @@ draft → submitted → in_review → approved → in_progress → completed
 - **Linked job tracking** — ServiceM8 UUIDs stored and visible in the job detail view
 - See [ServiceM8 Setup](#servicem8-setup) below
 
+### BYDA / DBYD Enquiry Assist
+- **Automatic assessment** — rules engine determines if BYDA is required based on job title/description (excavation, trenching, boring, etc.)
+- **Interactive map** — draw a polygon work area on a map centred on the job address (Leaflet + OpenStreetMap)
+- **Polygon validation** — enforces closed rings, min/max area, warns on very large areas
+- **Enquiry reuse** — automatically reuses a valid (non-expired) existing enquiry if the address and polygon overlap above a threshold
+- **Provider abstraction** — supports SmarterWX API for auto-lodge, or manual fallback mode
+- **Manual lodge workflow** — copy job details + polygon to clipboard for manual BYDA lodgement, then paste the enquiry ID back
+- **Status tracking** — status pills: Not Required / Needed / Lodging / Lodged / Failed / Manual Required / Expired
+- **Configurable rules** — admin UI for managing BYDA rules (field, pattern, match type, priority)
+- **Lodge queue** — automatic retry with exponential backoff for failed API lodgements
+- **Idempotency** — prevents duplicate lodgements via job + polygon + address hash
+- **Full audit trail** — every assessment, polygon save, lodge, and reuse decision logged in job history
+- See [BYDA Setup](#byda-setup) below
+
 ### Bulk Import
 - **Excel/CSV upload** — import jobs from `.xlsx`, `.xls`, or `.csv` files
 - **Preview before import** — review mapped data before committing
@@ -124,6 +138,30 @@ Without ServiceM8 configured, approvals still work normally — they just skip t
 
 ---
 
+## BYDA Setup
+
+BYDA (Dial Before You Dig) integration works out-of-the-box in manual mode — no API keys needed. The system will:
+- Automatically assess every new job against configurable rules
+- Provide a map drawing tool for work area polygons
+- Track enquiry status and expiry
+
+### Optional: SmarterWX API (auto-lodge)
+
+To enable automatic lodgement via the SmarterWX/BYDA API:
+
+```env
+BYDA_PROVIDER=smarterwx
+BYDA_API_URL=https://api.smarterwx.com/v1
+BYDA_API_KEY=your-smarterwx-api-key
+BYDA_AUTO_LODGE=true
+```
+
+### Customising Rules
+
+Navigate to **BYDA Rules** in the sidebar to manage assessment rules. Rules match job fields (title, description, notes) against patterns. Default rules cover common excavation/civil keywords.
+
+---
+
 ## Project Structure
 
 ```
@@ -133,10 +171,12 @@ AI-Controller/
 │   ├── models/
 │   │   └── database.js        # SQLite schema and helpers
 │   ├── routes/
+│   │   ├── byda.js            # BYDA/DBYD enquiry API routes
 │   │   ├── jobs.js            # Job CRUD and workflow API
 │   │   ├── attachments.js     # File upload/download/delete API
 │   │   └── uploads.js         # Excel/CSV bulk import API
 │   ├── services/
+│   │   ├── byda.js            # BYDA/DBYD enquiry engine (rules, reuse, lodge, queue)
 │   │   ├── servicem8.js       # ServiceM8 job creation API
 │   │   └── sharepoint.js      # Microsoft Graph SharePoint sync
 │   ├── middleware/             # (reserved)
@@ -171,6 +211,18 @@ AI-Controller/
 | GET | `/api/jobs/:id/attachments/:aid/download` | Download a file |
 | DELETE | `/api/jobs/:id/attachments/:aid` | Delete an attachment |
 | POST | `/api/jobs/:id/attachments/sync-sharepoint` | Trigger SharePoint sync |
+
+### BYDA / DBYD
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/jobs/:id/byda` | Get BYDA enquiry details for a job |
+| POST | `/api/jobs/:id/byda/assess` | Run rules engine to assess if BYDA is required |
+| POST | `/api/jobs/:id/byda/polygon` | Save a work area polygon (GeoJSON) |
+| POST | `/api/jobs/:id/byda/lodge` | Lodge enquiry (tries reuse, then new) |
+| POST | `/api/jobs/:id/byda/manual-link` | Link a manually-lodged enquiry ID |
+| POST | `/api/jobs/:id/byda/geocode` | Geocode the job address for map centering |
+| GET | `/api/byda/rules` | List all BYDA assessment rules |
+| PUT | `/api/byda/rules` | Replace all BYDA rules |
 
 ### ServiceM8
 | Method | Endpoint | Description |

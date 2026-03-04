@@ -87,7 +87,100 @@ function initialize() {
       created_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (job_id) REFERENCES jobs(id)
     );
+
+    -- BYDA / DBYD Enquiry tables
+    CREATE TABLE IF NOT EXISTS byda_enquiries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      job_id INTEGER NOT NULL,
+      address_text TEXT,
+      address_structured TEXT,
+      polygon_geojson TEXT,
+      centroid_lat REAL,
+      centroid_lng REAL,
+      polygon_hash TEXT,
+      address_hash TEXT,
+      work_type TEXT,
+      required_flag INTEGER DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'not_required',
+      provider TEXT DEFAULT 'manual',
+      external_enquiry_id TEXT,
+      lodged_at TEXT,
+      expiry_at TEXT,
+      reused_from_enquiry_id INTEGER,
+      error_message TEXT,
+      raw_provider_payload TEXT,
+      triggered_by TEXT DEFAULT 'system',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (job_id) REFERENCES jobs(id),
+      FOREIGN KEY (reused_from_enquiry_id) REFERENCES byda_enquiries(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS byda_rules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      rule_name TEXT NOT NULL,
+      field TEXT NOT NULL DEFAULT 'title',
+      pattern TEXT NOT NULL,
+      match_type TEXT NOT NULL DEFAULT 'contains',
+      result TEXT NOT NULL DEFAULT 'required',
+      priority INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS byda_queue (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      job_id INTEGER NOT NULL,
+      enquiry_id INTEGER,
+      action TEXT NOT NULL DEFAULT 'lodge',
+      idempotency_key TEXT UNIQUE,
+      status TEXT NOT NULL DEFAULT 'pending',
+      attempts INTEGER DEFAULT 0,
+      max_attempts INTEGER DEFAULT 3,
+      next_attempt_at TEXT DEFAULT (datetime('now')),
+      error_message TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (job_id) REFERENCES jobs(id),
+      FOREIGN KEY (enquiry_id) REFERENCES byda_enquiries(id)
+    );
   `);
+
+  // Add BYDA columns to jobs if not present (migration-safe)
+  const jobCols = conn.prepare("PRAGMA table_info(jobs)").all().map(c => c.name);
+  if (!jobCols.includes('byda_required')) {
+    conn.exec("ALTER TABLE jobs ADD COLUMN byda_required INTEGER DEFAULT 0");
+  }
+  if (!jobCols.includes('byda_status')) {
+    conn.exec("ALTER TABLE jobs ADD COLUMN byda_status TEXT DEFAULT 'not_assessed'");
+  }
+  if (!jobCols.includes('byda_enquiry_id')) {
+    conn.exec("ALTER TABLE jobs ADD COLUMN byda_enquiry_id INTEGER REFERENCES byda_enquiries(id)");
+  }
+
+  // Seed default BYDA rules if empty
+  const ruleCount = conn.prepare("SELECT COUNT(*) as c FROM byda_rules").get().c;
+  if (ruleCount === 0) {
+    const defaultRules = [
+      ['Excavation work', 'title', 'excavat', 'contains', 'required', 10],
+      ['Trenching work', 'title', 'trench', 'contains', 'required', 10],
+      ['Digging work', 'title', 'dig', 'contains', 'required', 10],
+      ['Potholing work', 'title', 'pothole', 'contains', 'required', 10],
+      ['Boring work', 'title', 'boring', 'contains', 'required', 10],
+      ['Ploughing work', 'title', 'plough', 'contains', 'required', 10],
+      ['Drilling work', 'title', 'drill', 'contains', 'required', 10],
+      ['Civil works', 'title', 'civil', 'contains', 'required', 10],
+      ['Underground work', 'description', 'underground', 'contains', 'required', 8],
+      ['Cable laying', 'description', 'cable lay', 'contains', 'required', 8],
+      ['Pipe install', 'description', 'pipe install', 'contains', 'required', 8],
+      ['Design only - not required', 'title', 'design only', 'contains', 'not_required', 20],
+      ['Admin task - not required', 'title', 'admin', 'contains', 'not_required', 20],
+      ['Desk work - not required', 'title', 'desk', 'contains', 'not_required', 20],
+    ];
+    const insertRule = conn.prepare(
+      "INSERT INTO byda_rules (rule_name, field, pattern, match_type, result, priority) VALUES (?, ?, ?, ?, ?, ?)"
+    );
+    for (const r of defaultRules) insertRule.run(...r);
+  }
 
   console.log('Database initialized');
 }

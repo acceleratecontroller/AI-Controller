@@ -4,6 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ACOMS - Work Order Job System</title>
+  <!-- Leaflet for BYDA map drawing -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -404,6 +409,77 @@
       margin-bottom: 4px; font-size: 0.82rem;
     }
 
+    /* BYDA / DBYD Section */
+    .byda-section {
+      margin-top: 20px;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 16px;
+      background: #fafbfe;
+    }
+    .byda-section h4 {
+      font-size: 0.9rem; color: #2c3e50; margin-bottom: 10px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .byda-status-pill {
+      padding: 3px 10px; border-radius: 12px; font-size: 0.68rem;
+      font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .byda-status-not_assessed { background: #eee; color: #666; }
+    .byda-status-not_required { background: #e8e8e8; color: #777; }
+    .byda-status-needed { background: #fff3cd; color: #856404; }
+    .byda-status-lodging { background: #cce5ff; color: #004085; }
+    .byda-status-lodged { background: #d4edda; color: #155724; }
+    .byda-status-waiting_plans { background: #d1ecf1; color: #0c5460; }
+    .byda-status-expired { background: #f8d7da; color: #721c24; }
+    .byda-status-failed { background: #f8d7da; color: #721c24; }
+    .byda-status-manual_required { background: #fff3cd; color: #856404; }
+    .byda-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .byda-details { margin-top: 10px; font-size: 0.82rem; color: #555; }
+    .byda-details .detail-row { display: flex; gap: 8px; padding: 4px 0; }
+    .byda-details .detail-row label { font-weight: 600; min-width: 100px; color: #666; font-size: 0.75rem; text-transform: uppercase; }
+    .byda-helper {
+      font-size: 0.72rem; color: #888; margin-top: 8px;
+      padding: 8px 10px; background: #f0f0f0; border-radius: 6px;
+      line-height: 1.4;
+    }
+    .byda-export-box {
+      margin-top: 8px; padding: 10px; background: #f8f9fa;
+      border: 1px solid #ddd; border-radius: 6px; font-size: 0.78rem;
+      font-family: monospace; white-space: pre-wrap; word-break: break-all;
+      max-height: 120px; overflow-y: auto;
+    }
+
+    /* Map Modal */
+    .map-modal .modal { max-width: 900px; }
+    .map-container { width: 100%; height: 400px; border-radius: 8px; border: 1px solid #ddd; }
+    .map-info-bar {
+      display: flex; gap: 12px; align-items: center; margin-top: 10px;
+      font-size: 0.82rem; color: #555; flex-wrap: wrap;
+    }
+    .map-info-bar .area-display {
+      padding: 4px 10px; background: #e8f4fd; border-radius: 6px;
+      font-weight: 600; color: #0c5460;
+    }
+    .map-info-bar .coord-display { color: #888; font-size: 0.75rem; }
+    .map-warning {
+      margin-top: 8px; padding: 8px 12px; background: #fff3cd; color: #856404;
+      border-radius: 6px; font-size: 0.8rem; display: none;
+    }
+
+    /* BYDA Rules Admin */
+    .rules-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .rules-table th {
+      padding: 8px 10px; text-align: left; font-size: 0.7rem;
+      text-transform: uppercase; color: #999; background: #f8f9fa;
+    }
+    .rules-table td { padding: 8px 10px; border-top: 1px solid #f0f0f0; }
+    .rules-table input, .rules-table select {
+      width: 100%; padding: 5px 8px; border: 1px solid #ddd;
+      border-radius: 4px; font-size: 0.8rem;
+    }
+    .rules-table tr:hover { background: #f8f9ff; }
+
     /* Responsive */
     @media (max-width: 768px) {
       .sidebar { display: none; }
@@ -433,6 +509,9 @@
         </button>
         <button data-view="import">
           <span class="icon">&#8593;</span> Excel Import
+        </button>
+        <button data-view="byda-settings">
+          <span class="icon">&#9881;</span> BYDA Rules
         </button>
       </div>
     </nav>
@@ -518,6 +597,32 @@
           </div>
           <div id="preview-area" style="margin-top:20px;"></div>
         </div>
+
+        <!-- BYDA Rules Settings View -->
+        <div id="view-byda-settings" class="view" style="display:none;">
+          <p style="margin-bottom:16px; color:#555;">Configure rules that determine when a BYDA/DBYD enquiry is required. Rules are matched top-to-bottom by priority (highest first). First match wins.</p>
+          <div class="job-table-wrap" style="padding:16px;">
+            <table class="rules-table" id="byda-rules-table">
+              <thead>
+                <tr>
+                  <th>Rule Name</th>
+                  <th>Field</th>
+                  <th>Match Type</th>
+                  <th>Pattern</th>
+                  <th>Result</th>
+                  <th>Priority</th>
+                  <th>Active</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="byda-rules-body"></tbody>
+            </table>
+            <div style="margin-top:12px; display:flex; gap:10px;">
+              <button class="btn btn-outline btn-sm" onclick="addBydaRule()">+ Add Rule</button>
+              <button class="btn btn-success btn-sm" onclick="saveBydaRules()">Save All Rules</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -601,6 +706,56 @@
     </div>
   </div>
 
+  <!-- BYDA Map Drawing Modal -->
+  <div class="modal-overlay map-modal" id="modal-byda-map">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Draw BYDA Work Area</h3>
+        <button class="modal-close" onclick="closeMapModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.82rem; color:#555; margin-bottom:10px;">
+          Draw a polygon around the work area. The map is centered on the job address. Click the polygon tool on the left to start drawing.
+        </p>
+        <div id="byda-map" class="map-container"></div>
+        <div class="map-info-bar">
+          <span>Area: <span class="area-display" id="map-area-display">-</span></span>
+          <span class="coord-display" id="map-coord-display"></span>
+          <button class="btn btn-outline btn-sm" id="map-clear-btn" onclick="clearMapPolygon()" style="display:none;">Clear &amp; Redraw</button>
+        </div>
+        <div class="map-warning" id="map-warning"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeMapModal()">Cancel</button>
+        <button class="btn btn-success" id="map-save-btn" onclick="saveMapPolygon()" disabled>Save Work Area</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BYDA Manual Link Modal -->
+  <div class="modal-overlay" id="modal-byda-manual">
+    <div class="modal" style="max-width:500px;">
+      <div class="modal-header">
+        <h3>Link Manual BYDA Enquiry</h3>
+        <button class="modal-close" onclick="closeModal('modal-byda-manual')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.82rem; color:#555; margin-bottom:10px;">
+          Paste the BYDA/DBYD enquiry ID or reference number you received after lodging manually.
+        </p>
+        <div class="form-field">
+          <label>External Enquiry ID / Reference</label>
+          <input type="text" id="byda-manual-id" placeholder="e.g. BYDA-2026-123456" />
+        </div>
+        <div id="byda-manual-error" style="display:none; margin-top:8px; color:#e74c3c; font-size:0.82rem;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-byda-manual')">Cancel</button>
+        <button class="btn btn-primary" onclick="submitManualLink()">Link Enquiry</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ServiceM8 Approval Modal -->
   <div class="modal-overlay" id="modal-sm8-approve">
     <div class="modal">
@@ -661,12 +816,13 @@
       document.querySelectorAll('.sidebar-nav button').forEach(b => b.classList.remove('active'));
       document.querySelector(`[data-view="${view}"]`).classList.add('active');
 
-      const titles = { dashboard: 'Dashboard', jobs: 'All Jobs', review: 'Review Queue', import: 'Excel Import' };
+      const titles = { dashboard: 'Dashboard', jobs: 'All Jobs', review: 'Review Queue', import: 'Excel Import', 'byda-settings': 'BYDA Rules' };
       document.getElementById('page-title').textContent = titles[view] || 'Dashboard';
 
       if (view === 'dashboard') loadDashboard();
       if (view === 'jobs') loadJobs();
       if (view === 'review') loadReviewQueue();
+      if (view === 'byda-settings') loadBydaRules();
     }
 
     // ── API Helpers ──
@@ -847,6 +1003,9 @@
 
       // Set up drag and drop
       setupDropZone();
+
+      // Load BYDA section
+      await renderBydaSection(id);
 
       // Build action buttons based on status
       // Show ServiceM8 linked jobs if any exist
@@ -1268,6 +1427,493 @@
         if (e.target === overlay) overlay.classList.remove('active');
       });
     });
+
+    // ── BYDA / DBYD Functions ──
+
+    let bydaMapInstance = null;
+    let bydaDrawnLayer = null;
+    let bydaDrawControl = null;
+    let bydaCurrentJobId = null;
+    let bydaCurrentPolygon = null;
+
+    async function renderBydaSection(jobId) {
+      const byda = await api(`/jobs/${jobId}/byda`);
+      if (!byda) return;
+
+      const statusLabels = {
+        not_assessed: 'Not Assessed',
+        not_required: 'Not Required',
+        needed: 'Needed',
+        lodging: 'Lodging...',
+        lodged: 'Lodged',
+        waiting_plans: 'Waiting Plans',
+        expired: 'Expired',
+        failed: 'Failed',
+        manual_required: 'Manual Required'
+      };
+
+      const statusLabel = statusLabels[byda.status] || byda.status;
+      const enq = byda.enquiry;
+
+      let detailsHtml = '';
+      if (enq) {
+        detailsHtml = '<div class="byda-details">';
+        if (enq.external_enquiry_id)
+          detailsHtml += `<div class="detail-row"><label>Enquiry ID</label><span>${esc(enq.external_enquiry_id)}</span></div>`;
+        if (enq.provider)
+          detailsHtml += `<div class="detail-row"><label>Provider</label><span>${esc(enq.provider)}</span></div>`;
+        if (enq.lodged_at)
+          detailsHtml += `<div class="detail-row"><label>Lodged</label><span>${formatDate(enq.lodged_at)}</span></div>`;
+        if (enq.expiry_at)
+          detailsHtml += `<div class="detail-row"><label>Expires</label><span>${formatDate(enq.expiry_at)}</span></div>`;
+        if (enq.polygon_geojson)
+          detailsHtml += `<div class="detail-row"><label>Work Area</label><span>Polygon saved</span></div>`;
+        if (enq.reused_from_enquiry_id)
+          detailsHtml += `<div class="detail-row"><label>Reused From</label><span>Enquiry #${enq.reused_from_enquiry_id}</span></div>`;
+        if (enq.error_message)
+          detailsHtml += `<div class="detail-row"><label>Error</label><span style="color:#e74c3c;">${esc(enq.error_message)}</span></div>`;
+        detailsHtml += '</div>';
+      }
+
+      // Build action buttons
+      let actionsHtml = '<div class="byda-actions">';
+      actionsHtml += `<button class="btn btn-outline btn-sm" onclick="openMapModal(${jobId})">Open Map &amp; Draw Work Area</button>`;
+
+      if (['needed', 'manual_required', 'failed'].includes(byda.status)) {
+        actionsHtml += `<button class="btn btn-primary btn-sm" onclick="lodgeBydaEnquiry(${jobId})">Auto-lodge Now</button>`;
+      }
+      if (byda.status === 'manual_required' || (byda.status === 'needed' && !byda.isApiConfigured)) {
+        actionsHtml += `<button class="btn btn-warning btn-sm" onclick="openManualLinkModal(${jobId})">Paste Enquiry ID</button>`;
+      }
+      if (byda.status === 'lodged' && enq && enq.external_enquiry_id) {
+        actionsHtml += `<button class="btn btn-outline btn-sm" onclick="alert('Enquiry: ${esc(enq.external_enquiry_id)}')">View Enquiry</button>`;
+      }
+      if (byda.status === 'not_assessed' || byda.status === 'not_required') {
+        actionsHtml += `<button class="btn btn-outline btn-sm" onclick="reassessByda(${jobId})">Re-assess</button>`;
+      }
+      if (byda.status === 'not_required') {
+        actionsHtml += `<button class="btn btn-outline btn-sm" onclick="overrideByda(${jobId})">Override: Mark Required</button>`;
+      }
+      actionsHtml += '</div>';
+
+      // Manual export data if needed
+      let exportHtml = '';
+      if (byda.status === 'manual_required' && enq) {
+        const exportData = {
+          address: enq.address_text,
+          job_title: '',
+          polygon: enq.polygon_geojson ? 'Polygon saved (see map)' : 'Not drawn yet'
+        };
+        exportHtml = `
+          <div style="margin-top:10px;">
+            <button class="btn btn-outline btn-sm" onclick="copyBydaExport(${jobId})">Copy Details for Manual Lodge</button>
+            <div class="byda-export-box" id="byda-export-${jobId}" style="display:none;"></div>
+          </div>`;
+      }
+
+      const html = `
+        <div class="byda-section">
+          <h4>
+            BYDA / DBYD Enquiry
+            <span class="byda-status-pill byda-status-${byda.status}">${statusLabel}</span>
+          </h4>
+          ${byda.required
+            ? '<div style="font-size:0.8rem; color:#856404; margin-bottom:6px;">This job requires a BYDA enquiry before field works can commence.</div>'
+            : byda.status === 'not_required'
+              ? '<div style="font-size:0.8rem; color:#777; margin-bottom:6px;">No BYDA enquiry required based on current rules.</div>'
+              : ''}
+          ${detailsHtml}
+          ${actionsHtml}
+          ${exportHtml}
+          <div class="byda-helper">
+            <strong>Why is this required?</strong> Under Australian law, you must lodge a Dial Before You Dig (DBYD/BYDA) enquiry before any excavation, trenching, boring, or ground-disturbing work. This protects underground infrastructure (gas, water, power, comms). The system automates this compliance step for you.
+          </div>
+        </div>`;
+
+      document.getElementById('detail-body').insertAdjacentHTML('beforeend', html);
+    }
+
+    async function reassessByda(jobId) {
+      const result = await api(`/jobs/${jobId}/byda/assess`, { method: 'POST', body: '{}' });
+      openJobDetail(jobId);
+    }
+
+    async function overrideByda(jobId) {
+      // Manual override to mark as required
+      const { getDb } = {}; // frontend only
+      await api(`/jobs/${jobId}/byda/assess`, { method: 'POST', body: '{}' });
+      // Force update via direct status set
+      const res = await fetch(`/api/jobs/${jobId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ byda_required: 1, byda_status: 'needed' })
+      });
+      openJobDetail(jobId);
+    }
+
+    async function lodgeBydaEnquiry(jobId) {
+      const btn = event.target;
+      btn.disabled = true;
+      btn.textContent = 'Lodging...';
+      const result = await api(`/jobs/${jobId}/byda/lodge`, { method: 'POST', body: '{}' });
+      openJobDetail(jobId);
+    }
+
+    async function copyBydaExport(jobId) {
+      const byda = await api(`/jobs/${jobId}/byda`);
+      const job = await api(`/jobs/${jobId}`);
+      const exportText = [
+        `Job: ${job.job_number} - ${job.title}`,
+        `Address: ${job.site_address || 'Not specified'}`,
+        `Customer: ${job.customer_name || '-'}`,
+        `Scheduled: ${job.scheduled_date || '-'}`,
+        `Description: ${job.description || '-'}`,
+        byda.enquiry && byda.enquiry.polygon_geojson
+          ? `Polygon GeoJSON: ${byda.enquiry.polygon_geojson}`
+          : 'Polygon: Not drawn'
+      ].join('\n');
+
+      const box = document.getElementById(`byda-export-${jobId}`);
+      if (box) {
+        box.textContent = exportText;
+        box.style.display = '';
+      }
+      try {
+        await navigator.clipboard.writeText(exportText);
+        alert('Copied to clipboard!');
+      } catch (e) {
+        // Fallback: show in box
+      }
+    }
+
+    // ── Map Modal ──
+
+    function openMapModal(jobId) {
+      bydaCurrentJobId = jobId;
+      bydaCurrentPolygon = null;
+      document.getElementById('map-area-display').textContent = '-';
+      document.getElementById('map-coord-display').textContent = '';
+      document.getElementById('map-warning').style.display = 'none';
+      document.getElementById('map-save-btn').disabled = true;
+      document.getElementById('map-clear-btn').style.display = 'none';
+
+      openModal('modal-byda-map');
+
+      // Need to delay map init until modal is visible
+      setTimeout(() => initBydaMap(jobId), 100);
+    }
+
+    function closeMapModal() {
+      closeModal('modal-byda-map');
+      if (bydaMapInstance) {
+        bydaMapInstance.remove();
+        bydaMapInstance = null;
+      }
+    }
+
+    async function initBydaMap(jobId) {
+      // Clean up previous
+      if (bydaMapInstance) {
+        bydaMapInstance.remove();
+        bydaMapInstance = null;
+      }
+
+      // Default center: Australia
+      let center = [-25.2744, 133.7751];
+      let zoom = 4;
+
+      // Try geocoding the job address
+      const geocodeResult = await api(`/jobs/${jobId}/byda/geocode`, { method: 'POST', body: '{}' });
+      if (geocodeResult.success) {
+        center = [geocodeResult.lat, geocodeResult.lng];
+        zoom = 17;
+      }
+
+      bydaMapInstance = L.map('byda-map').setView(center, zoom);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 20
+      }).addTo(bydaMapInstance);
+
+      // Add a marker for the geocoded address
+      if (geocodeResult.success) {
+        L.marker(center).addTo(bydaMapInstance)
+          .bindPopup('Job address').openPopup();
+      }
+
+      // Drawing layer
+      bydaDrawnLayer = new L.FeatureGroup();
+      bydaMapInstance.addLayer(bydaDrawnLayer);
+
+      // Load existing polygon if present
+      const byda = await api(`/jobs/${jobId}/byda`);
+      if (byda.enquiry && byda.enquiry.polygon_geojson) {
+        try {
+          const geojson = JSON.parse(byda.enquiry.polygon_geojson);
+          const layer = L.geoJSON(geojson);
+          layer.eachLayer(l => bydaDrawnLayer.addLayer(l));
+          bydaCurrentPolygon = geojson;
+          bydaMapInstance.fitBounds(bydaDrawnLayer.getBounds(), { padding: [30, 30] });
+          updateMapInfo(geojson);
+          document.getElementById('map-save-btn').disabled = false;
+          document.getElementById('map-clear-btn').style.display = '';
+        } catch (e) { /* ignore bad data */ }
+      }
+
+      // Draw controls
+      bydaDrawControl = new L.Control.Draw({
+        position: 'topleft',
+        draw: {
+          polygon: { allowIntersection: false, showArea: true },
+          rectangle: true,
+          polyline: false,
+          circle: false,
+          circlemarker: false,
+          marker: false
+        },
+        edit: {
+          featureGroup: bydaDrawnLayer,
+          remove: true
+        }
+      });
+      bydaMapInstance.addControl(bydaDrawControl);
+
+      bydaMapInstance.on(L.Draw.Event.CREATED, function (e) {
+        // Clear previous
+        bydaDrawnLayer.clearLayers();
+        bydaDrawnLayer.addLayer(e.layer);
+
+        const geojson = e.layer.toGeoJSON().geometry;
+        bydaCurrentPolygon = geojson;
+        updateMapInfo(geojson);
+        document.getElementById('map-save-btn').disabled = false;
+        document.getElementById('map-clear-btn').style.display = '';
+      });
+
+      bydaMapInstance.on(L.Draw.Event.EDITED, function (e) {
+        const layers = e.layers;
+        layers.eachLayer(layer => {
+          const geojson = layer.toGeoJSON().geometry;
+          bydaCurrentPolygon = geojson;
+          updateMapInfo(geojson);
+        });
+      });
+
+      bydaMapInstance.on(L.Draw.Event.DELETED, function () {
+        bydaCurrentPolygon = null;
+        document.getElementById('map-area-display').textContent = '-';
+        document.getElementById('map-coord-display').textContent = '';
+        document.getElementById('map-warning').style.display = 'none';
+        document.getElementById('map-save-btn').disabled = true;
+        document.getElementById('map-clear-btn').style.display = 'none';
+      });
+
+      // Invalidate size after modal animation
+      setTimeout(() => bydaMapInstance.invalidateSize(), 300);
+    }
+
+    function updateMapInfo(geojson) {
+      if (!geojson || !geojson.coordinates || !geojson.coordinates[0]) return;
+
+      const ring = geojson.coordinates[0];
+      // Compute area (simple Shoelace in m²)
+      const avgLat = ring.reduce((s, c) => s + c[1], 0) / ring.length;
+      const mPerDegLat = 111320;
+      const mPerDegLng = 111320 * Math.cos(avgLat * Math.PI / 180);
+      const projected = ring.map(c => [c[0] * mPerDegLng, c[1] * mPerDegLat]);
+      let area = 0;
+      for (let i = 0; i < projected.length - 1; i++) {
+        area += projected[i][0] * projected[i + 1][1];
+        area -= projected[i + 1][0] * projected[i][1];
+      }
+      area = Math.abs(area) / 2;
+
+      let areaStr;
+      if (area < 10000) areaStr = area.toFixed(0) + ' m\u00B2';
+      else areaStr = (area / 10000).toFixed(2) + ' ha';
+
+      document.getElementById('map-area-display').textContent = areaStr;
+
+      // Centroid
+      const n = ring.length - 1;
+      const cLat = ring.slice(0, n).reduce((s, c) => s + c[1], 0) / n;
+      const cLng = ring.slice(0, n).reduce((s, c) => s + c[0], 0) / n;
+      document.getElementById('map-coord-display').textContent = `Centre: ${cLat.toFixed(6)}, ${cLng.toFixed(6)}`;
+
+      // Warnings
+      const warning = document.getElementById('map-warning');
+      if (area > 1000000) {
+        warning.textContent = `Warning: Large area (${(area / 1000000).toFixed(2)} km\u00B2). Please confirm this is correct.`;
+        warning.style.display = '';
+      } else if (area < 1) {
+        warning.textContent = 'Warning: Area is too small. Draw a larger polygon.';
+        warning.style.display = '';
+      } else {
+        warning.style.display = 'none';
+      }
+    }
+
+    function clearMapPolygon() {
+      if (bydaDrawnLayer) bydaDrawnLayer.clearLayers();
+      bydaCurrentPolygon = null;
+      document.getElementById('map-area-display').textContent = '-';
+      document.getElementById('map-coord-display').textContent = '';
+      document.getElementById('map-warning').style.display = 'none';
+      document.getElementById('map-save-btn').disabled = true;
+      document.getElementById('map-clear-btn').style.display = 'none';
+    }
+
+    async function saveMapPolygon() {
+      if (!bydaCurrentPolygon || !bydaCurrentJobId) return;
+
+      const btn = document.getElementById('map-save-btn');
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+
+      const result = await api(`/jobs/${bydaCurrentJobId}/byda/polygon`, {
+        method: 'POST',
+        body: JSON.stringify({ polygon: bydaCurrentPolygon })
+      });
+
+      if (result.error) {
+        document.getElementById('map-warning').textContent = result.error;
+        document.getElementById('map-warning').style.display = '';
+        btn.disabled = false;
+        btn.textContent = 'Save Work Area';
+        return;
+      }
+
+      btn.textContent = 'Saved!';
+      setTimeout(() => {
+        closeMapModal();
+        openJobDetail(bydaCurrentJobId);
+      }, 500);
+    }
+
+    // ── Manual Link Modal ──
+
+    function openManualLinkModal(jobId) {
+      bydaCurrentJobId = jobId;
+      document.getElementById('byda-manual-id').value = '';
+      document.getElementById('byda-manual-error').style.display = 'none';
+      openModal('modal-byda-manual');
+    }
+
+    async function submitManualLink() {
+      const id = document.getElementById('byda-manual-id').value.trim();
+      if (!id) {
+        document.getElementById('byda-manual-error').textContent = 'Please enter an enquiry ID.';
+        document.getElementById('byda-manual-error').style.display = '';
+        return;
+      }
+
+      const result = await api(`/jobs/${bydaCurrentJobId}/byda/manual-link`, {
+        method: 'POST',
+        body: JSON.stringify({ external_enquiry_id: id })
+      });
+
+      if (result.error) {
+        document.getElementById('byda-manual-error').textContent = result.error;
+        document.getElementById('byda-manual-error').style.display = '';
+        return;
+      }
+
+      closeModal('modal-byda-manual');
+      openJobDetail(bydaCurrentJobId);
+    }
+
+    // ── BYDA Rules Admin ──
+
+    async function loadBydaRules() {
+      const rules = await api('/byda/rules');
+      const tbody = document.getElementById('byda-rules-body');
+      if (!rules || rules.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#999; padding:20px;">No rules configured. Click "+ Add Rule" below.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = rules.map((r, i) => `
+        <tr data-rule-idx="${i}">
+          <td><input type="text" value="${esc(r.rule_name)}" data-field="rule_name" /></td>
+          <td>
+            <select data-field="field">
+              <option value="title" ${r.field === 'title' ? 'selected' : ''}>Title</option>
+              <option value="description" ${r.field === 'description' ? 'selected' : ''}>Description</option>
+              <option value="notes" ${r.field === 'notes' ? 'selected' : ''}>Notes</option>
+            </select>
+          </td>
+          <td>
+            <select data-field="match_type">
+              <option value="contains" ${r.match_type === 'contains' ? 'selected' : ''}>Contains</option>
+              <option value="starts_with" ${r.match_type === 'starts_with' ? 'selected' : ''}>Starts With</option>
+              <option value="exact" ${r.match_type === 'exact' ? 'selected' : ''}>Exact</option>
+              <option value="regex" ${r.match_type === 'regex' ? 'selected' : ''}>Regex</option>
+            </select>
+          </td>
+          <td><input type="text" value="${esc(r.pattern)}" data-field="pattern" /></td>
+          <td>
+            <select data-field="result">
+              <option value="required" ${r.result === 'required' ? 'selected' : ''}>Required</option>
+              <option value="not_required" ${r.result === 'not_required' ? 'selected' : ''}>Not Required</option>
+            </select>
+          </td>
+          <td><input type="number" value="${r.priority}" data-field="priority" style="width:60px;" /></td>
+          <td><input type="checkbox" data-field="is_active" ${r.is_active ? 'checked' : ''} /></td>
+          <td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()">x</button></td>
+        </tr>
+      `).join('');
+    }
+
+    function addBydaRule() {
+      const tbody = document.getElementById('byda-rules-body');
+      // Remove "no rules" row if present
+      const empty = tbody.querySelector('td[colspan]');
+      if (empty) empty.closest('tr').remove();
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input type="text" value="" data-field="rule_name" placeholder="Rule name..." /></td>
+        <td><select data-field="field"><option value="title" selected>Title</option><option value="description">Description</option><option value="notes">Notes</option></select></td>
+        <td><select data-field="match_type"><option value="contains" selected>Contains</option><option value="starts_with">Starts With</option><option value="exact">Exact</option><option value="regex">Regex</option></select></td>
+        <td><input type="text" value="" data-field="pattern" placeholder="pattern..." /></td>
+        <td><select data-field="result"><option value="required" selected>Required</option><option value="not_required">Not Required</option></select></td>
+        <td><input type="number" value="0" data-field="priority" style="width:60px;" /></td>
+        <td><input type="checkbox" data-field="is_active" checked /></td>
+        <td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()">x</button></td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    async function saveBydaRules() {
+      const rows = document.querySelectorAll('#byda-rules-body tr');
+      const rules = [];
+      for (const row of rows) {
+        if (row.querySelector('td[colspan]')) continue; // skip empty state
+        const r = {};
+        r.rule_name = row.querySelector('[data-field="rule_name"]').value.trim();
+        r.field = row.querySelector('[data-field="field"]').value;
+        r.match_type = row.querySelector('[data-field="match_type"]').value;
+        r.pattern = row.querySelector('[data-field="pattern"]').value.trim();
+        r.result = row.querySelector('[data-field="result"]').value;
+        r.priority = parseInt(row.querySelector('[data-field="priority"]').value) || 0;
+        r.is_active = row.querySelector('[data-field="is_active"]').checked ? 1 : 0;
+        if (r.rule_name && r.pattern) rules.push(r);
+      }
+
+      const result = await fetch('/api/byda/rules', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rules })
+      });
+      const data = await result.json();
+      if (data.error) {
+        alert('Error saving rules: ' + data.error);
+      } else {
+        alert('Rules saved! (' + data.length + ' rules)');
+        loadBydaRules();
+      }
+    }
 
     // ── Init ──
     loadDashboard();
