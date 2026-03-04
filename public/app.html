@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ACOMS - Work Order Job System</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+
+    .app-shell {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 240px;
+      background: #1a1a2e;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-brand {
+      padding: 20px;
+      background: #16213e;
+      text-align: center;
+      border-bottom: 1px solid #0f3460;
+    }
+    .sidebar-brand h1 { font-size: 1.2rem; letter-spacing: 1px; }
+    .sidebar-brand small { opacity: 0.6; font-size: 0.7rem; }
+
+    .sidebar-nav { padding: 10px 0; flex: 1; }
+    .sidebar-nav button {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      padding: 12px 20px;
+      background: none;
+      border: none;
+      color: #a0a0b8;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: left;
+    }
+    .sidebar-nav button:hover { background: #16213e; color: #fff; }
+    .sidebar-nav button.active { background: #0f3460; color: #667eea; border-left: 3px solid #667eea; }
+    .sidebar-nav button .icon { font-size: 1.1rem; width: 24px; text-align: center; }
+    .sidebar-nav button .badge {
+      margin-left: auto;
+      background: #e74c3c;
+      color: #fff;
+      font-size: 0.7rem;
+      padding: 2px 7px;
+      border-radius: 10px;
+    }
+
+    /* Main Content */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #f0f2f5;
+      overflow-x: hidden;
+    }
+
+    .top-bar {
+      background: #fff;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .top-bar h2 { font-size: 1.1rem; color: #2c3e50; }
+    .top-bar .actions { display: flex; gap: 10px; }
+
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary { background: #667eea; color: #fff; }
+    .btn-primary:hover { background: #5a6fd6; }
+    .btn-success { background: #27ae60; color: #fff; }
+    .btn-success:hover { background: #219a52; }
+    .btn-warning { background: #f39c12; color: #fff; }
+    .btn-warning:hover { background: #d68910; }
+    .btn-danger { background: #e74c3c; color: #fff; }
+    .btn-danger:hover { background: #c0392b; }
+    .btn-outline {
+      background: #fff;
+      color: #667eea;
+      border: 2px solid #667eea;
+    }
+    .btn-outline:hover { background: #667eea; color: #fff; }
+    .btn-sm { padding: 5px 10px; font-size: 0.75rem; }
+
+    .content-area { padding: 24px; flex: 1; }
+
+    /* Stats Row */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 16px 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .stat-card .label { font-size: 0.75rem; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-card .value { font-size: 1.8rem; font-weight: 700; color: #2c3e50; margin-top: 4px; }
+    .stat-card .sub { font-size: 0.75rem; color: #27ae60; margin-top: 2px; }
+
+    /* Filter Bar */
+    .filter-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-bar input, .filter-bar select {
+      padding: 8px 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+    .filter-bar input:focus, .filter-bar select:focus { outline: none; border-color: #667eea; }
+    .filter-bar input { flex: 1; min-width: 200px; }
+
+    /* Job Table */
+    .job-table-wrap {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead { background: #f8f9fa; }
+    th {
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      color: #999;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+    td { padding: 12px 16px; font-size: 0.85rem; color: #333; border-top: 1px solid #f0f0f0; }
+    tr:hover { background: #f8f9ff; cursor: pointer; }
+
+    .status-badge {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .status-draft { background: #eee; color: #666; }
+    .status-submitted { background: #fff3cd; color: #856404; }
+    .status-in_review { background: #cce5ff; color: #004085; }
+    .status-approved { background: #d4edda; color: #155724; }
+    .status-rejected { background: #f8d7da; color: #721c24; }
+    .status-in_progress { background: #d1ecf1; color: #0c5460; }
+    .status-on_hold { background: #ffeeba; color: #856404; }
+    .status-completed { background: #c3e6cb; color: #155724; }
+
+    .priority-high { color: #e74c3c; font-weight: 600; }
+    .priority-urgent { color: #c0392b; font-weight: 700; }
+    .priority-normal { color: #2c3e50; }
+    .priority-low { color: #95a5a6; }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 40px 20px;
+      overflow-y: auto;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: #fff;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 700px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+      animation: slideUp 0.3s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .modal-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-header h3 { font-size: 1.1rem; color: #2c3e50; }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: #999;
+      padding: 0 4px;
+    }
+    .modal-body { padding: 24px; }
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid #eee;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    /* Form inside modal */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .form-grid .full-width { grid-column: 1 / -1; }
+    .form-field label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 4px;
+    }
+    .form-field input, .form-field select, .form-field textarea {
+      width: 100%;
+      padding: 9px 12px;
+      border: 2px solid #e9ecef;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      transition: border-color 0.2s;
+    }
+    .form-field input:focus, .form-field select:focus, .form-field textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    .form-field textarea { resize: vertical; min-height: 70px; }
+
+    /* Detail View */
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .detail-grid .full-width { grid-column: 1 / -1; }
+    .detail-item label { font-size: 0.7rem; text-transform: uppercase; color: #999; letter-spacing: 0.5px; }
+    .detail-item .val { font-size: 0.95rem; color: #2c3e50; margin-top: 2px; }
+
+    .history-list { margin-top: 16px; }
+    .history-item {
+      display: flex;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 0.8rem;
+      color: #555;
+    }
+    .history-item .time { color: #999; white-space: nowrap; }
+
+    /* Upload section */
+    .upload-zone {
+      border: 2px dashed #ccc;
+      border-radius: 10px;
+      padding: 30px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #fafafa;
+    }
+    .upload-zone:hover { border-color: #667eea; background: #f0f2ff; }
+    .upload-zone .icon { font-size: 2rem; margin-bottom: 8px; }
+    .upload-zone p { color: #666; font-size: 0.9rem; }
+    .upload-zone small { color: #999; }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+    }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .form-grid { grid-template-columns: 1fr; }
+      .stats-row { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Sidebar -->
+    <nav class="sidebar">
+      <div class="sidebar-brand">
+        <h1>ACOMS</h1>
+        <small>Work Order System v0.1</small>
+      </div>
+      <div class="sidebar-nav">
+        <button class="active" data-view="dashboard">
+          <span class="icon">&#9632;</span> Dashboard
+        </button>
+        <button data-view="jobs">
+          <span class="icon">&#9998;</span> All Jobs
+        </button>
+        <button data-view="review">
+          <span class="icon">&#10003;</span> Review Queue
+          <span class="badge" id="review-count">0</span>
+        </button>
+        <button data-view="import">
+          <span class="icon">&#8593;</span> Excel Import
+        </button>
+      </div>
+    </nav>
+
+    <!-- Main -->
+    <div class="main-content">
+      <div class="top-bar">
+        <h2 id="page-title">Dashboard</h2>
+        <div class="actions">
+          <button class="btn btn-primary" onclick="openNewJobModal()">+ New Job</button>
+        </div>
+      </div>
+
+      <div class="content-area">
+        <!-- Dashboard View -->
+        <div id="view-dashboard" class="view">
+          <div class="stats-row" id="stats-row"></div>
+          <h3 style="margin-bottom:12px; color:#2c3e50; font-size:1rem;">Recent Jobs</h3>
+          <div class="job-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Job #</th><th>Title</th><th>Customer</th>
+                  <th>Priority</th><th>Status</th><th>Created</th>
+                </tr>
+              </thead>
+              <tbody id="recent-jobs"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- All Jobs View -->
+        <div id="view-jobs" class="view" style="display:none;">
+          <div class="filter-bar">
+            <input type="text" id="search-input" placeholder="Search jobs..." oninput="loadJobs()" />
+            <select id="status-filter" onchange="loadJobs()">
+              <option value="all">All Statuses</option>
+              <option value="draft">Draft</option>
+              <option value="submitted">Submitted</option>
+              <option value="in_review">In Review</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="in_progress">In Progress</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+          <div class="job-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Job #</th><th>Title</th><th>Customer</th><th>Source</th>
+                  <th>Priority</th><th>Status</th><th>Assigned</th><th>Created</th>
+                </tr>
+              </thead>
+              <tbody id="all-jobs"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Review Queue View -->
+        <div id="view-review" class="view" style="display:none;">
+          <p style="margin-bottom:16px; color:#555;">Jobs waiting for your review and approval.</p>
+          <div class="job-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Job #</th><th>Title</th><th>Customer</th>
+                  <th>Priority</th><th>Status</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="review-jobs"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Import View -->
+        <div id="view-import" class="view" style="display:none;">
+          <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+            <div class="icon">&#128196;</div>
+            <p>Click to upload an Excel or CSV file</p>
+            <small>Supports .xlsx, .xls, .csv (max 10MB)</small>
+            <input type="file" id="file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileUpload(this)" />
+          </div>
+          <div id="preview-area" style="margin-top:20px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Job Modal -->
+  <div class="modal-overlay" id="modal-new-job">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Create New Work Order</h3>
+        <button class="modal-close" onclick="closeModal('modal-new-job')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-field full-width">
+            <label>Job Title *</label>
+            <input type="text" id="job-title" placeholder="e.g. AC Unit Repair - 123 Main St" />
+          </div>
+          <div class="form-field full-width">
+            <label>Description</label>
+            <textarea id="job-desc" placeholder="Describe the work to be done..."></textarea>
+          </div>
+          <div class="form-field">
+            <label>Customer Name</label>
+            <input type="text" id="job-customer" />
+          </div>
+          <div class="form-field">
+            <label>Customer Email</label>
+            <input type="email" id="job-email" />
+          </div>
+          <div class="form-field">
+            <label>Customer Phone</label>
+            <input type="tel" id="job-phone" />
+          </div>
+          <div class="form-field">
+            <label>Priority</label>
+            <select id="job-priority">
+              <option value="low">Low</option>
+              <option value="normal" selected>Normal</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </div>
+          <div class="form-field full-width">
+            <label>Site Address</label>
+            <input type="text" id="job-address" placeholder="Where is the work happening?" />
+          </div>
+          <div class="form-field">
+            <label>Scheduled Date</label>
+            <input type="date" id="job-date" />
+          </div>
+          <div class="form-field">
+            <label>Assigned To</label>
+            <input type="text" id="job-assigned" placeholder="Team member name" />
+          </div>
+          <div class="form-field">
+            <label>Estimated Hours</label>
+            <input type="number" id="job-hours" step="0.5" min="0" />
+          </div>
+          <div class="form-field full-width">
+            <label>Notes</label>
+            <textarea id="job-notes" placeholder="Any additional notes..."></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-new-job')">Cancel</button>
+        <button class="btn btn-primary" onclick="createJob()">Create Job</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Job Detail Modal -->
+  <div class="modal-overlay" id="modal-job-detail">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="detail-title">Job Details</h3>
+        <button class="modal-close" onclick="closeModal('modal-job-detail')">&times;</button>
+      </div>
+      <div class="modal-body" id="detail-body"></div>
+      <div class="modal-footer" id="detail-actions"></div>
+    </div>
+  </div>
+
+  <script>
+    // ── State ──
+    let currentView = 'dashboard';
+    let allJobs = [];
+
+    // ── Navigation ──
+    document.querySelectorAll('.sidebar-nav button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const view = btn.dataset.view;
+        switchView(view);
+      });
+    });
+
+    function switchView(view) {
+      currentView = view;
+      document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
+      document.getElementById(`view-${view}`).style.display = 'block';
+      document.querySelectorAll('.sidebar-nav button').forEach(b => b.classList.remove('active'));
+      document.querySelector(`[data-view="${view}"]`).classList.add('active');
+
+      const titles = { dashboard: 'Dashboard', jobs: 'All Jobs', review: 'Review Queue', import: 'Excel Import' };
+      document.getElementById('page-title').textContent = titles[view] || 'Dashboard';
+
+      if (view === 'dashboard') loadDashboard();
+      if (view === 'jobs') loadJobs();
+      if (view === 'review') loadReviewQueue();
+    }
+
+    // ── API Helpers ──
+    async function api(path, options = {}) {
+      const res = await fetch(`/api${path}`, {
+        headers: { 'Content-Type': 'application/json', ...options.headers },
+        ...options
+      });
+      return res.json();
+    }
+
+    // ── Dashboard ──
+    async function loadDashboard() {
+      const jobs = await api('/jobs');
+      allJobs = jobs;
+
+      const stats = {
+        total: jobs.length,
+        draft: jobs.filter(j => j.status === 'draft').length,
+        review: jobs.filter(j => ['submitted', 'in_review'].includes(j.status)).length,
+        approved: jobs.filter(j => j.status === 'approved').length,
+        inProgress: jobs.filter(j => j.status === 'in_progress').length,
+        completed: jobs.filter(j => j.status === 'completed').length
+      };
+
+      document.getElementById('review-count').textContent = stats.review;
+
+      document.getElementById('stats-row').innerHTML = `
+        <div class="stat-card"><div class="label">Total Jobs</div><div class="value">${stats.total}</div></div>
+        <div class="stat-card"><div class="label">Drafts</div><div class="value">${stats.draft}</div></div>
+        <div class="stat-card"><div class="label">Awaiting Review</div><div class="value" style="color:#f39c12">${stats.review}</div></div>
+        <div class="stat-card"><div class="label">Approved</div><div class="value" style="color:#27ae60">${stats.approved}</div></div>
+        <div class="stat-card"><div class="label">In Progress</div><div class="value" style="color:#2980b9">${stats.inProgress}</div></div>
+        <div class="stat-card"><div class="label">Completed</div><div class="value" style="color:#27ae60">${stats.completed}</div></div>
+      `;
+
+      const recent = jobs.slice(0, 10);
+      document.getElementById('recent-jobs').innerHTML = recent.length === 0
+        ? '<tr><td colspan="6" class="empty-state"><div class="icon">&#128203;</div><p>No jobs yet. Click "+ New Job" to get started!</p></td></tr>'
+        : recent.map(jobRow).join('');
+    }
+
+    // ── Jobs List ──
+    async function loadJobs() {
+      const status = document.getElementById('status-filter').value;
+      const search = document.getElementById('search-input').value;
+      const params = new URLSearchParams();
+      if (status !== 'all') params.set('status', status);
+      if (search) params.set('search', search);
+
+      const jobs = await api(`/jobs?${params}`);
+      document.getElementById('all-jobs').innerHTML = jobs.length === 0
+        ? '<tr><td colspan="8" class="empty-state">No jobs match your filters</td></tr>'
+        : jobs.map(j => `
+          <tr onclick="openJobDetail(${j.id})">
+            <td><strong>${esc(j.job_number)}</strong></td>
+            <td>${esc(j.title)}</td>
+            <td>${esc(j.customer_name || '-')}</td>
+            <td>${esc(j.source)}</td>
+            <td class="priority-${j.priority}">${esc(j.priority)}</td>
+            <td><span class="status-badge status-${j.status}">${esc(j.status.replace('_', ' '))}</span></td>
+            <td>${esc(j.assigned_to || '-')}</td>
+            <td>${formatDate(j.created_at)}</td>
+          </tr>`).join('');
+    }
+
+    // ── Review Queue ──
+    async function loadReviewQueue() {
+      const jobs = await api('/jobs?status=submitted');
+      const inReview = await api('/jobs?status=in_review');
+      const all = [...jobs, ...inReview];
+
+      document.getElementById('review-jobs').innerHTML = all.length === 0
+        ? '<tr><td colspan="6" class="empty-state">No jobs to review right now</td></tr>'
+        : all.map(j => `
+          <tr>
+            <td><strong>${esc(j.job_number)}</strong></td>
+            <td>${esc(j.title)}</td>
+            <td>${esc(j.customer_name || '-')}</td>
+            <td class="priority-${j.priority}">${esc(j.priority)}</td>
+            <td><span class="status-badge status-${j.status}">${esc(j.status.replace('_', ' '))}</span></td>
+            <td>
+              <button class="btn btn-success btn-sm" onclick="quickStatus(${j.id}, '${j.status === 'submitted' ? 'in_review' : 'approved'}')">
+                ${j.status === 'submitted' ? 'Start Review' : 'Approve'}
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="quickStatus(${j.id}, '${j.status === 'submitted' ? 'in_review' : 'rejected'}')" style="${j.status === 'submitted' ? 'display:none' : ''}">
+                Reject
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="openJobDetail(${j.id})">View</button>
+            </td>
+          </tr>`).join('');
+    }
+
+    // ── Create Job ──
+    async function createJob() {
+      const title = document.getElementById('job-title').value.trim();
+      if (!title) { alert('Please enter a job title'); return; }
+
+      const job = await api('/jobs', {
+        method: 'POST',
+        body: JSON.stringify({
+          title,
+          description: document.getElementById('job-desc').value,
+          customer_name: document.getElementById('job-customer').value,
+          customer_email: document.getElementById('job-email').value,
+          customer_phone: document.getElementById('job-phone').value,
+          priority: document.getElementById('job-priority').value,
+          site_address: document.getElementById('job-address').value,
+          scheduled_date: document.getElementById('job-date').value,
+          assigned_to: document.getElementById('job-assigned').value,
+          estimated_hours: document.getElementById('job-hours').value || null,
+          notes: document.getElementById('job-notes').value
+        })
+      });
+
+      closeModal('modal-new-job');
+      clearNewJobForm();
+      switchView('dashboard');
+    }
+
+    function clearNewJobForm() {
+      ['job-title','job-desc','job-customer','job-email','job-phone','job-address','job-date','job-assigned','job-hours','job-notes'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+      document.getElementById('job-priority').value = 'normal';
+    }
+
+    // ── Job Detail ──
+    async function openJobDetail(id) {
+      const data = await api(`/jobs/${id}`);
+
+      document.getElementById('detail-title').textContent = `${data.job_number} - ${data.title}`;
+      document.getElementById('detail-body').innerHTML = `
+        <div class="detail-grid">
+          <div class="detail-item"><label>Status</label><div class="val"><span class="status-badge status-${data.status}">${data.status.replace('_', ' ')}</span></div></div>
+          <div class="detail-item"><label>Priority</label><div class="val priority-${data.priority}">${data.priority}</div></div>
+          <div class="detail-item"><label>Customer</label><div class="val">${esc(data.customer_name || '-')}</div></div>
+          <div class="detail-item"><label>Email</label><div class="val">${esc(data.customer_email || '-')}</div></div>
+          <div class="detail-item"><label>Phone</label><div class="val">${esc(data.customer_phone || '-')}</div></div>
+          <div class="detail-item"><label>Site Address</label><div class="val">${esc(data.site_address || '-')}</div></div>
+          <div class="detail-item"><label>Scheduled</label><div class="val">${data.scheduled_date || '-'}</div></div>
+          <div class="detail-item"><label>Assigned To</label><div class="val">${esc(data.assigned_to || '-')}</div></div>
+          <div class="detail-item"><label>Est. Hours</label><div class="val">${data.estimated_hours || '-'}</div></div>
+          <div class="detail-item"><label>Source</label><div class="val">${esc(data.source)}</div></div>
+          <div class="detail-item full-width"><label>Description</label><div class="val">${esc(data.description || 'No description')}</div></div>
+          <div class="detail-item full-width"><label>Notes</label><div class="val">${esc(data.notes || 'No notes')}</div></div>
+        </div>
+        ${data.history && data.history.length > 0 ? `
+          <h4 style="margin-top:20px; font-size:0.9rem; color:#2c3e50;">History</h4>
+          <div class="history-list">
+            ${data.history.map(h => `
+              <div class="history-item">
+                <span class="time">${formatDate(h.created_at)}</span>
+                <span><strong>${esc(h.action)}</strong> by ${esc(h.changed_by)} - ${esc(h.details)}</span>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+      `;
+
+      // Build action buttons based on status
+      const actions = getStatusActions(data);
+      document.getElementById('detail-actions').innerHTML = actions
+        .map(a => `<button class="btn ${a.cls}" onclick="changeStatus(${data.id}, '${a.status}')">${a.label}</button>`)
+        .join('') + `<button class="btn btn-outline" onclick="closeModal('modal-job-detail')">Close</button>`;
+
+      openModal('modal-job-detail');
+    }
+
+    function getStatusActions(job) {
+      const map = {
+        draft: [{ status: 'submitted', label: 'Submit for Review', cls: 'btn-primary' }],
+        submitted: [{ status: 'in_review', label: 'Start Review', cls: 'btn-warning' }],
+        in_review: [
+          { status: 'approved', label: 'Approve', cls: 'btn-success' },
+          { status: 'rejected', label: 'Reject', cls: 'btn-danger' },
+          { status: 'draft', label: 'Send Back to Draft', cls: 'btn-outline' }
+        ],
+        rejected: [{ status: 'draft', label: 'Revise (Back to Draft)', cls: 'btn-primary' }],
+        approved: [{ status: 'in_progress', label: 'Start Work', cls: 'btn-success' }],
+        in_progress: [
+          { status: 'completed', label: 'Mark Complete', cls: 'btn-success' },
+          { status: 'on_hold', label: 'Put on Hold', cls: 'btn-warning' }
+        ],
+        on_hold: [{ status: 'in_progress', label: 'Resume Work', cls: 'btn-primary' }],
+        completed: []
+      };
+      return map[job.status] || [];
+    }
+
+    async function changeStatus(id, status) {
+      await api(`/jobs/${id}/status`, {
+        method: 'POST',
+        body: JSON.stringify({ status, changed_by: 'user' })
+      });
+      closeModal('modal-job-detail');
+      switchView(currentView);
+    }
+
+    async function quickStatus(id, status) {
+      await api(`/jobs/${id}/status`, {
+        method: 'POST',
+        body: JSON.stringify({ status, changed_by: 'user' })
+      });
+      loadReviewQueue();
+      loadDashboard();
+    }
+
+    // ── Excel Upload ──
+    async function handleFileUpload(input) {
+      const file = input.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/uploads/preview', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (data.error) {
+        document.getElementById('preview-area').innerHTML = `<div style="color:#e74c3c; padding:12px;">${esc(data.error)}</div>`;
+        return;
+      }
+
+      document.getElementById('preview-area').innerHTML = `
+        <div class="job-table-wrap" style="margin-bottom:16px;">
+          <div style="padding:12px 16px; background:#f8f9fa; border-bottom:1px solid #eee;">
+            <strong>${esc(data.filename)}</strong> - ${data.totalRows} rows found
+            <span style="color:#999; margin-left:8px;">Showing first ${Math.min(10, data.totalRows)} rows</span>
+          </div>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr>${data.columns.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
+              <tbody>${data.preview.map(row => `<tr>${data.columns.map(c => `<td>${esc(String(row[c] || ''))}</td>`).join('')}</tr>`).join('')}</tbody>
+            </table>
+          </div>
+        </div>
+        <button class="btn btn-success" onclick="importFile()">Import All ${data.totalRows} Rows as Jobs</button>
+        <button class="btn btn-outline" onclick="cancelImport()">Cancel</button>
+      `;
+
+      // Store file for import
+      window._pendingFile = file;
+    }
+
+    async function importFile() {
+      if (!window._pendingFile) return;
+
+      const formData = new FormData();
+      formData.append('file', window._pendingFile);
+
+      const res = await fetch('/api/uploads/import', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (data.error) {
+        alert('Import error: ' + data.error);
+        return;
+      }
+
+      document.getElementById('preview-area').innerHTML = `
+        <div style="background:#d4edda; padding:16px; border-radius:8px; margin-top:12px;">
+          <strong>Import complete!</strong> ${data.imported} jobs created.
+          ${data.errors > 0 ? `<br><span style="color:#856404;">${data.errors} rows had errors.</span>` : ''}
+        </div>
+      `;
+      window._pendingFile = null;
+      document.getElementById('file-input').value = '';
+    }
+
+    function cancelImport() {
+      document.getElementById('preview-area').innerHTML = '';
+      document.getElementById('file-input').value = '';
+      window._pendingFile = null;
+    }
+
+    // ── Utilities ──
+    function openModal(id) { document.getElementById(id).classList.add('active'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+    function openNewJobModal() { openModal('modal-new-job'); }
+    function esc(str) {
+      const d = document.createElement('div');
+      d.textContent = str;
+      return d.innerHTML;
+    }
+    function formatDate(dt) {
+      if (!dt) return '-';
+      return new Date(dt).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function jobRow(j) {
+      return `<tr onclick="openJobDetail(${j.id})">
+        <td><strong>${esc(j.job_number)}</strong></td>
+        <td>${esc(j.title)}</td>
+        <td>${esc(j.customer_name || '-')}</td>
+        <td class="priority-${j.priority}">${esc(j.priority)}</td>
+        <td><span class="status-badge status-${j.status}">${esc(j.status.replace('_', ' '))}</span></td>
+        <td>${formatDate(j.created_at)}</td>
+      </tr>`;
+    }
+
+    // Close modals on overlay click
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      overlay.addEventListener('click', e => {
+        if (e.target === overlay) overlay.classList.remove('active');
+      });
+    });
+
+    // ── Init ──
+    loadDashboard();
+  </script>
+</body>
+</html>

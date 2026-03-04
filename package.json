@@ -1,0 +1,16 @@
+{
+  "name": "ai-controller-job-system",
+  "version": "0.1.0",
+  "description": "Work Order Job Creation System with review workflow and API integrations",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "express": "^4.21.0",
+    "multer": "^1.4.5-lts.1",
+    "xlsx": "^0.18.5"
+  }
+}
