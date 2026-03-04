@@ -287,13 +287,23 @@
     .history-list { margin-top: 16px; }
     .history-item {
       display: flex;
-      gap: 10px;
-      padding: 8px 0;
-      border-bottom: 1px solid #f0f0f0;
+      flex-direction: column;
+      gap: 2px;
+      padding: 8px 10px;
+      border-left: 3px solid #3498db;
+      margin-bottom: 6px;
+      background: #fff;
+      border-radius: 4px;
       font-size: 0.8rem;
       color: #555;
     }
+    .history-item[data-action^="byda_error"] { border-left-color: #e74c3c; }
+    .history-item[data-action^="byda_lodged"] { border-left-color: #27ae60; }
+    .history-item[data-action^="byda_retry"] { border-left-color: #f39c12; }
+    .history-item[data-action^="byda_manual"] { border-left-color: #e67e22; }
+    .history-item .history-header { display: flex; gap: 10px; align-items: center; }
     .history-item .time { color: #999; white-space: nowrap; }
+    .history-item .history-details { color: #777; font-size: 0.75rem; margin-top: 2px; line-height: 1.5; }
 
     /* Upload section */
     .upload-zone {
@@ -991,12 +1001,19 @@
         ${data.history && data.history.length > 0 ? `
           <h4 style="margin-top:20px; font-size:0.9rem; color:#2c3e50;">History</h4>
           <div class="history-list">
-            ${data.history.map(h => `
-              <div class="history-item">
-                <span class="time">${formatDate(h.created_at)}</span>
-                <span><strong>${esc(h.action)}</strong> by ${esc(h.changed_by)} - ${esc(h.details)}</span>
-              </div>
-            `).join('')}
+            ${data.history.map(h => {
+              const parts = (h.details || '').split(' | ');
+              const summary = esc(parts[0]);
+              const extra = parts.slice(1).map(p => esc(p));
+              return `
+              <div class="history-item" data-action="${esc(h.action)}">
+                <div class="history-header">
+                  <span class="time">${formatDate(h.created_at)}</span>
+                  <span><strong>${esc(h.action)}</strong> by ${esc(h.changed_by)} — ${summary}</span>
+                </div>
+                ${extra.length ? `<div class="history-details">${extra.join(' &bull; ')}</div>` : ''}
+              </div>`;
+            }).join('')}
           </div>
         ` : ''}
       `;

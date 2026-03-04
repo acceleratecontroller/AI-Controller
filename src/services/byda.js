@@ -511,9 +511,17 @@ async function lodge(jobId, triggeredBy = 'user') {
 
   // Reset failed or manual_required enquiries so they can be retried
   if (enquiry.status === 'failed' || enquiry.status === 'manual_required') {
+    const prevStatus = enquiry.status;
+    const prevError = enquiry.error_message || 'none';
     db.prepare("UPDATE byda_enquiries SET status = 'needed', error_message = NULL, updated_at = datetime('now') WHERE id = ?").run(enquiry.id);
     db.prepare("UPDATE jobs SET byda_status = 'needed', updated_at = datetime('now') WHERE id = ?").run(jobId);
+    // Clear completed queue entries so retry isn't blocked
+    db.prepare("UPDATE byda_queue SET status = 'completed' WHERE job_id = ? AND status IN ('pending', 'processing')").run(jobId);
     enquiry = db.prepare('SELECT * FROM byda_enquiries WHERE id = ?').get(enquiry.id);
+
+    db.prepare(
+      "INSERT INTO job_history (job_id, action, changed_by, details) VALUES (?, 'byda_retry', ?, ?)"
+    ).run(jobId, triggeredBy, `Retrying BYDA lodge (previous status: ${prevStatus}, error: ${prevError})`);
   }
 
   // Check idempotency
@@ -573,9 +581,17 @@ async function lodge(jobId, triggeredBy = 'user') {
     `).run(triggeredBy, enquiry.id);
     db.prepare("UPDATE jobs SET byda_status = 'manual_required', updated_at = datetime('now') WHERE id = ?").run(jobId);
 
+    const manualDetails = [
+      'BYDA API not configured — manual lodgement required',
+      `Provider: ${CONFIG.provider}`,
+      `API URL: ${CONFIG.apiUrl || 'not set'}`,
+      `Credentials: ${CONFIG.clientId ? 'Client ID set' : 'not set'}`,
+      `Address: ${job.site_address}`
+    ].join(' | ');
+
     db.prepare(
       "INSERT INTO job_history (job_id, action, changed_by, details) VALUES (?, 'byda_manual', ?, ?)"
-    ).run(jobId, triggeredBy, 'BYDA API not configured — manual lodgement required');
+    ).run(jobId, triggeredBy, manualDetails);
 
     return {
       status: 'manual_required',
@@ -622,9 +638,17 @@ async function lodge(jobId, triggeredBy = 'user') {
 
     db.prepare("UPDATE jobs SET byda_status = 'lodged', updated_at = datetime('now') WHERE id = ?").run(jobId);
 
+    const lodgeDetails = [
+      `BYDA enquiry lodged successfully via SmarterWX`,
+      `Enquiry ID: ${providerResult.enquiryId || 'pending'}`,
+      `Address: ${enquiry.address_text || job.site_address}`,
+      `Expires: ${new Date(expiryAt).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })}`,
+      providerResult.reference ? `Reference: ${providerResult.reference}` : null
+    ].filter(Boolean).join(' | ');
+
     db.prepare(
       "INSERT INTO job_history (job_id, action, changed_by, details) VALUES (?, 'byda_lodged', ?, ?)"
-    ).run(jobId, triggeredBy, `BYDA enquiry lodged: ${providerResult.enquiryId}`);
+    ).run(jobId, triggeredBy, lodgeDetails);
 
     return {
       status: 'lodged',
@@ -645,9 +669,18 @@ async function lodge(jobId, triggeredBy = 'user') {
       VALUES (?, ?, 'lodge', ?, 'pending')
     `).run(jobId, enquiry.id, idempotencyKey);
 
+    const errorDetails = [
+      `BYDA lodge failed`,
+      `Error: ${err.message}`,
+      `Address: ${enquiry.address_text || job.site_address}`,
+      `Provider: smarterwx`,
+      `API URL: ${CONFIG.apiUrl}`,
+      `Will retry automatically (queued)`
+    ].join(' | ');
+
     db.prepare(
       "INSERT INTO job_history (job_id, action, changed_by, details) VALUES (?, 'byda_error', ?, ?)"
-    ).run(jobId, triggeredBy, `BYDA lodge failed: ${err.message}`);
+    ).run(jobId, triggeredBy, errorDetails);
 
     return { status: 'failed', error: err.message };
   }
