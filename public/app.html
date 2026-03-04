@@ -312,6 +312,50 @@
     }
     .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
 
+    /* Attachments */
+    .attachments-section { margin-top: 20px; }
+    .attachments-section h4 { font-size: 0.9rem; color: #2c3e50; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    .attachment-upload-zone {
+      border: 2px dashed #d0d0d0;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #fafafa;
+      margin-bottom: 12px;
+    }
+    .attachment-upload-zone:hover { border-color: #667eea; background: #f0f2ff; }
+    .attachment-upload-zone.drag-over { border-color: #667eea; background: #e8ecff; }
+    .attachment-upload-zone p { color: #666; font-size: 0.85rem; margin: 0; }
+    .attachment-upload-zone small { color: #999; font-size: 0.75rem; }
+    .attachment-list { list-style: none; padding: 0; margin: 0; }
+    .attachment-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid #eee;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      font-size: 0.82rem;
+      background: #fff;
+    }
+    .attachment-item:hover { background: #f8f9ff; }
+    .attachment-item .file-icon { font-size: 1.2rem; flex-shrink: 0; }
+    .attachment-item .file-info { flex: 1; min-width: 0; }
+    .attachment-item .file-name { color: #2c3e50; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .attachment-item .file-meta { color: #999; font-size: 0.72rem; }
+    .attachment-item .file-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    .sp-badge {
+      font-size: 0.65rem;
+      padding: 2px 6px;
+      border-radius: 8px;
+      background: #d4edda;
+      color: #155724;
+    }
+    .sp-badge.pending { background: #fff3cd; color: #856404; }
+
     /* Responsive */
     @media (max-width: 768px) {
       .sidebar { display: none; }
@@ -663,8 +707,12 @@
     }
 
     // ── Job Detail ──
+    let currentDetailJobId = null;
+
     async function openJobDetail(id) {
+      currentDetailJobId = id;
       const data = await api(`/jobs/${id}`);
+      const attachments = await api(`/jobs/${id}/attachments`);
 
       document.getElementById('detail-title').textContent = `${data.job_number} - ${data.title}`;
       document.getElementById('detail-body').innerHTML = `
@@ -682,6 +730,20 @@
           <div class="detail-item full-width"><label>Description</label><div class="val">${esc(data.description || 'No description')}</div></div>
           <div class="detail-item full-width"><label>Notes</label><div class="val">${esc(data.notes || 'No notes')}</div></div>
         </div>
+
+        <div class="attachments-section">
+          <h4>Attachments (${attachments.length})</h4>
+          <div class="attachment-upload-zone" id="detail-drop-zone" onclick="document.getElementById('detail-file-input').click()">
+            <p>Click or drag files here to attach</p>
+            <small>Any file type, up to 50MB each</small>
+            <input type="file" id="detail-file-input" multiple style="display:none" onchange="uploadAttachments(this.files)" />
+          </div>
+          <ul class="attachment-list" id="detail-attachment-list">
+            ${attachments.length === 0 ? '<li style="color:#999; font-size:0.82rem; padding:8px;">No attachments yet</li>' :
+              attachments.map(a => attachmentRow(a, id)).join('')}
+          </ul>
+        </div>
+
         ${data.history && data.history.length > 0 ? `
           <h4 style="margin-top:20px; font-size:0.9rem; color:#2c3e50;">History</h4>
           <div class="history-list">
@@ -694,6 +756,9 @@
           </div>
         ` : ''}
       `;
+
+      // Set up drag and drop
+      setupDropZone();
 
       // Build action buttons based on status
       const actions = getStatusActions(data);
@@ -808,6 +873,93 @@
       document.getElementById('preview-area').innerHTML = '';
       document.getElementById('file-input').value = '';
       window._pendingFile = null;
+    }
+
+    // ── Attachments ──
+    function attachmentRow(a, jobId) {
+      const icon = getFileIcon(a.mime_type, a.original_name);
+      const spStatus = a.sharepoint_synced
+        ? `<span class="sp-badge">SharePoint</span>`
+        : `<span class="sp-badge pending">Pending sync</span>`;
+
+      return `<li class="attachment-item">
+        <span class="file-icon">${icon}</span>
+        <div class="file-info">
+          <div class="file-name" title="${esc(a.original_name)}">${esc(a.original_name)}</div>
+          <div class="file-meta">${formatFileSize(a.file_size)} &middot; ${esc(a.source)} &middot; ${formatDate(a.created_at)} ${spStatus}</div>
+        </div>
+        <div class="file-actions">
+          <a href="/api/jobs/${jobId}/attachments/${a.id}/download" class="btn btn-outline btn-sm" title="Download">&#8595;</a>
+          <button class="btn btn-danger btn-sm" onclick="deleteAttachment(${jobId}, ${a.id})" title="Delete">&times;</button>
+        </div>
+      </li>`;
+    }
+
+    function getFileIcon(mimeType, name) {
+      if (!mimeType) mimeType = '';
+      if (mimeType.startsWith('image/')) return '&#128247;';
+      if (mimeType.includes('pdf')) return '&#128196;';
+      if (mimeType.includes('word') || name.match(/\.docx?$/i)) return '&#128196;';
+      if (mimeType.includes('excel') || mimeType.includes('spreadsheet') || name.match(/\.xlsx?$/i)) return '&#128202;';
+      if (mimeType.includes('video/')) return '&#127909;';
+      if (mimeType.includes('audio/')) return '&#127925;';
+      if (mimeType.includes('zip') || mimeType.includes('compressed') || name.match(/\.(zip|rar|7z|tar|gz)$/i)) return '&#128230;';
+      return '&#128206;';
+    }
+
+    function formatFileSize(bytes) {
+      if (!bytes) return '0 B';
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    async function uploadAttachments(files) {
+      if (!files || files.length === 0 || !currentDetailJobId) return;
+
+      const formData = new FormData();
+      for (const file of files) {
+        formData.append('files', file);
+      }
+
+      const res = await fetch(`/api/jobs/${currentDetailJobId}/attachments`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+
+      if (data.error) {
+        alert('Upload failed: ' + data.error);
+        return;
+      }
+
+      // Refresh the detail view to show new files
+      openJobDetail(currentDetailJobId);
+    }
+
+    async function deleteAttachment(jobId, attachmentId) {
+      if (!confirm('Remove this attachment?')) return;
+
+      await api(`/jobs/${jobId}/attachments/${attachmentId}`, { method: 'DELETE' });
+      openJobDetail(jobId);
+    }
+
+    function setupDropZone() {
+      const zone = document.getElementById('detail-drop-zone');
+      if (!zone) return;
+
+      zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        zone.classList.add('drag-over');
+      });
+      zone.addEventListener('dragleave', () => {
+        zone.classList.remove('drag-over');
+      });
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('drag-over');
+        uploadAttachments(e.dataTransfer.files);
+      });
     }
 
     // ── Utilities ──

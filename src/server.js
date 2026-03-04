@@ -3,6 +3,7 @@ const path = require('path');
 const db = require('./models/database');
 const jobRoutes = require('./routes/jobs');
 const uploadRoutes = require('./routes/uploads');
+const attachmentRoutes = require('./routes/attachments');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,6 +15,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Routes
 app.use('/api/jobs', jobRoutes);
+app.use('/api/jobs', attachmentRoutes);
 app.use('/api/uploads', uploadRoutes);
 
 // Serve main page

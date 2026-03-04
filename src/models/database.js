@@ -58,6 +58,22 @@ function initialize() {
       is_active INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS attachments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      job_id INTEGER NOT NULL,
+      original_name TEXT NOT NULL,
+      stored_name TEXT NOT NULL,
+      file_path TEXT NOT NULL,
+      file_size INTEGER NOT NULL,
+      mime_type TEXT,
+      source TEXT NOT NULL DEFAULT 'upload',
+      uploaded_by TEXT DEFAULT 'user',
+      sharepoint_url TEXT,
+      sharepoint_synced INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (job_id) REFERENCES jobs(id)
+    );
   `);
 
   console.log('Database initialized');
