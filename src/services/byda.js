@@ -581,11 +581,14 @@ async function lodge(jobId, triggeredBy = 'user') {
     `).run(triggeredBy, enquiry.id);
     db.prepare("UPDATE jobs SET byda_status = 'manual_required', updated_at = datetime('now') WHERE id = ?").run(jobId);
 
+    const missing = [];
+    if (CONFIG.provider !== 'smarterwx') missing.push(`BYDA_PROVIDER must be "smarterwx" (currently "${CONFIG.provider}")`);
+    if (!CONFIG.apiUrl) missing.push('BYDA_API_URL is not set');
+    if (!CONFIG.clientId && !CONFIG.apiKey) missing.push('BYDA_CLIENT_ID/BYDA_CLIENT_SECRET or BYDA_API_KEY not set');
+
     const manualDetails = [
       'BYDA API not configured — manual lodgement required',
-      `Provider: ${CONFIG.provider}`,
-      `API URL: ${CONFIG.apiUrl || 'not set'}`,
-      `Credentials: ${CONFIG.clientId ? 'Client ID set' : 'not set'}`,
+      `Missing in .env: ${missing.join('; ')}`,
       `Address: ${job.site_address}`
     ].join(' | ');
 

@@ -1008,7 +1008,7 @@
               return `
               <div class="history-item" data-action="${esc(h.action)}">
                 <div class="history-header">
-                  <span class="time">${formatDate(h.created_at)}</span>
+                  <span class="time">${formatDateTime(h.created_at)}</span>
                   <span><strong>${esc(h.action)}</strong> by ${esc(h.changed_by)} — ${summary}</span>
                 </div>
                 ${extra.length ? `<div class="history-details">${extra.join(' &bull; ')}</div>` : ''}
@@ -1425,6 +1425,14 @@
     function formatDate(dt) {
       if (!dt) return '-';
       return new Date(dt).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function formatDateTime(dt) {
+      if (!dt) return '-';
+      const d = new Date(dt);
+      const date = d.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' });
+      const time = d.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: true });
+      return `${date} ${time}`;
     }
 
     function jobRow(j) {
