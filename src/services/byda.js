@@ -367,10 +367,12 @@ async function lodgeViaSmarterWX(data) {
     scheduled_date: data.scheduled_date || ''
   };
 
+  // SmarterWX expects the token directly in the Authorization header
+  // (not Bearer prefix) — their docs say "Authorization HTTP header containing a token"
   const res = await fetch(CONFIG.apiUrl + '/enquiries', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${token}`,
+      'Authorization': token,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(payload)
