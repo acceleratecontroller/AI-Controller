@@ -25,9 +25,11 @@ const crypto = require('crypto');
 
 // ── Config ──
 
+const SMARTERWX_DEFAULT_URL = 'https://smarterwx.1100.com.au/api/community';
+
 const CONFIG = {
   provider: process.env.BYDA_PROVIDER || 'manual',
-  apiUrl: process.env.BYDA_API_URL || '',
+  apiUrl: process.env.BYDA_API_URL || SMARTERWX_DEFAULT_URL,
   clientId: process.env.BYDA_CLIENT_ID || '',
   clientSecret: process.env.BYDA_CLIENT_SECRET || '',
   apiKey: process.env.BYDA_API_KEY || '',
@@ -37,20 +39,58 @@ const CONFIG = {
   geocodeApiKey: process.env.GEOCODE_API_KEY || ''
 };
 
+// Token cache for OAuth flow
+let tokenCache = { token: null, expiresAt: 0 };
+
 function hasCredentials() {
-  return (CONFIG.clientId && CONFIG.clientSecret) || CONFIG.apiKey;
+  return !!(CONFIG.clientId && CONFIG.clientSecret) || !!CONFIG.apiKey;
 }
 
 function isApiConfigured() {
   return CONFIG.provider === 'smarterwx' && CONFIG.apiUrl && hasCredentials();
 }
 
-function getAuthHeader() {
-  if (CONFIG.clientId && CONFIG.clientSecret) {
-    const encoded = Buffer.from(`${CONFIG.clientId}:${CONFIG.clientSecret}`).toString('base64');
-    return `Basic ${encoded}`;
+/**
+ * Get a valid Bearer token.
+ * If using client ID/secret, exchanges them for a short-lived token via OAuth.
+ * If using a static API key, returns it directly.
+ */
+async function getAccessToken() {
+  if (CONFIG.apiKey) {
+    return CONFIG.apiKey;
   }
-  return `Bearer ${CONFIG.apiKey}`;
+
+  // Return cached token if still valid (with 60s buffer)
+  if (tokenCache.token && Date.now() < tokenCache.expiresAt - 60000) {
+    return tokenCache.token;
+  }
+
+  const tokenUrl = CONFIG.apiUrl + '/auth/tokens';
+  const res = await fetch(tokenUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      clientId: CONFIG.clientId,
+      clientSecret: CONFIG.clientSecret
+    })
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`BYDA token exchange failed (${res.status}): ${errText}`);
+  }
+
+  const body = await res.json();
+  const token = body.token || body.access_token;
+  if (!token) {
+    throw new Error('BYDA token exchange returned no token');
+  }
+
+  // Cache with expiry (default 1 hour if not specified)
+  const expiresIn = (body.expires_in || 3600) * 1000;
+  tokenCache = { token, expiresAt: Date.now() + expiresIn };
+
+  return token;
 }
 
 // ── Polygon Utilities ──
@@ -316,6 +356,8 @@ async function lodgeWithProvider(enquiryData) {
 }
 
 async function lodgeViaSmarterWX(data) {
+  const token = await getAccessToken();
+
   const payload = {
     address: data.address_text,
     polygon: data.polygon_geojson ? JSON.parse(data.polygon_geojson) : null,
@@ -328,7 +370,7 @@ async function lodgeViaSmarterWX(data) {
   const res = await fetch(CONFIG.apiUrl + '/enquiries', {
     method: 'POST',
     headers: {
-      'Authorization': getAuthHeader(),
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(payload)
@@ -465,6 +507,13 @@ async function lodge(jobId, triggeredBy = 'user') {
     `).run(jobId, job.site_address, addrHash, triggeredBy);
     enquiry = db.prepare('SELECT * FROM byda_enquiries WHERE id = ?').get(result.lastInsertRowid);
     db.prepare("UPDATE jobs SET byda_enquiry_id = ? WHERE id = ?").run(enquiry.id, jobId);
+  }
+
+  // Reset failed or manual_required enquiries so they can be retried
+  if (enquiry.status === 'failed' || enquiry.status === 'manual_required') {
+    db.prepare("UPDATE byda_enquiries SET status = 'needed', error_message = NULL, updated_at = datetime('now') WHERE id = ?").run(enquiry.id);
+    db.prepare("UPDATE jobs SET byda_status = 'needed', updated_at = datetime('now') WHERE id = ?").run(jobId);
+    enquiry = db.prepare('SELECT * FROM byda_enquiries WHERE id = ?').get(enquiry.id);
   }
 
   // Check idempotency
