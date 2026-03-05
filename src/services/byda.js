@@ -25,11 +25,13 @@ const crypto = require('crypto');
 
 // ── Config ──
 
-const SMARTERWX_DEFAULT_URL = 'https://smarterwx.1100.com.au/api/community';
+const SMARTERWX_BASE_URL = 'https://smarterwx.1100.com.au';
+const SMARTERWX_AUTH_URL = SMARTERWX_BASE_URL + '/api/community/auth/tokens';
+const SMARTERWX_API_URL = SMARTERWX_BASE_URL + '/api';
 
 const CONFIG = {
   provider: process.env.BYDA_PROVIDER || 'manual',
-  apiUrl: process.env.BYDA_API_URL || SMARTERWX_DEFAULT_URL,
+  apiUrl: process.env.BYDA_API_URL || SMARTERWX_API_URL,
   clientId: process.env.BYDA_CLIENT_ID || '',
   clientSecret: process.env.BYDA_CLIENT_SECRET || '',
   apiKey: process.env.BYDA_API_KEY || '',
@@ -65,7 +67,7 @@ async function getAccessToken() {
     return tokenCache.token;
   }
 
-  const tokenUrl = CONFIG.apiUrl + '/auth/tokens';
+  const tokenUrl = SMARTERWX_AUTH_URL;
   const res = await fetch(tokenUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
