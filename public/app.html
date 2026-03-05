@@ -572,8 +572,8 @@
             <table>
               <thead>
                 <tr>
-                  <th>Job #</th><th>Title</th><th>Customer</th><th>Source</th>
-                  <th>Priority</th><th>Status</th><th>Assigned</th><th>Created</th>
+                  <th>Acoms #</th><th>Client</th><th>Contract</th><th>Initial Status</th>
+                  <th>Client Ref</th><th>Project Name/Address</th><th>Client Contact</th><th>Received</th>
                 </tr>
               </thead>
               <tbody id="all-jobs"></tbody>
@@ -646,25 +646,44 @@
       </div>
       <div class="modal-body">
         <div class="form-grid">
+          <div class="form-field">
+            <label>Depot</label>
+            <input type="text" id="job-depot" placeholder="e.g. Brisbane" />
+          </div>
+          <div class="form-field">
+            <label>Client *</label>
+            <input type="text" id="job-client" placeholder="e.g. Telstra, Ventia" />
+          </div>
+          <div class="form-field">
+            <label>Contract</label>
+            <input type="text" id="job-contract" placeholder="e.g. RW, ODM, Private Client" />
+          </div>
+          <div class="form-field">
+            <label>Initial Status</label>
+            <select id="job-initial-status">
+              <option value="quote" selected>Quote</option>
+              <option value="work_order">Work Order</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Finance/PO Number/s</label>
+            <input type="text" id="job-finance-po" placeholder="e.g. 51224204" />
+          </div>
+          <div class="form-field">
+            <label>Client Reference Number</label>
+            <input type="text" id="job-client-ref" placeholder="e.g. QS503439-1" />
+          </div>
           <div class="form-field full-width">
-            <label>Job Title *</label>
-            <input type="text" id="job-title" placeholder="e.g. AC Unit Repair - 123 Main St" />
-          </div>
-          <div class="form-field full-width">
-            <label>Description</label>
-            <textarea id="job-desc" placeholder="Describe the work to be done..."></textarea>
+            <label>Project Name/Address *</label>
+            <input type="text" id="job-title" placeholder="e.g. 326-369 Loganlea Rd, Meadowbrook QLD 4131" />
           </div>
           <div class="form-field">
-            <label>Customer Name</label>
-            <input type="text" id="job-customer" />
+            <label>Job Received Date</label>
+            <input type="date" id="job-received-date" />
           </div>
           <div class="form-field">
-            <label>Customer Email</label>
-            <input type="email" id="job-email" />
-          </div>
-          <div class="form-field">
-            <label>Customer Phone</label>
-            <input type="tel" id="job-phone" />
+            <label>Client Contact</label>
+            <input type="text" id="job-client-contact" placeholder="e.g. Scott Peters" />
           </div>
           <div class="form-field">
             <label>Priority</label>
@@ -676,8 +695,12 @@
             </select>
           </div>
           <div class="form-field full-width">
+            <label>Description</label>
+            <textarea id="job-desc" placeholder="Describe the work to be done..."></textarea>
+          </div>
+          <div class="form-field full-width">
             <label>Site Address</label>
-            <input type="text" id="job-address" placeholder="Where is the work happening?" />
+            <input type="text" id="job-address" placeholder="Site address (if different from project name)" />
           </div>
           <div class="form-field">
             <label>Scheduled Date</label>
@@ -889,13 +912,13 @@
         : jobs.map(j => `
           <tr onclick="openJobDetail(${j.id})">
             <td><strong>${esc(j.job_number)}</strong></td>
+            <td>${esc(j.client || '-')}</td>
+            <td>${esc(j.contract || '-')}</td>
+            <td>${esc((j.initial_status || 'quote').replace('_', ' '))}</td>
+            <td>${esc(j.client_reference_number || '-')}</td>
             <td>${esc(j.title)}</td>
-            <td>${esc(j.customer_name || '-')}</td>
-            <td>${esc(j.source)}</td>
-            <td class="priority-${j.priority}">${esc(j.priority)}</td>
-            <td><span class="status-badge status-${j.status}">${esc(j.status.replace('_', ' '))}</span></td>
-            <td>${esc(j.assigned_to || '-')}</td>
-            <td>${formatDate(j.created_at)}</td>
+            <td>${esc(j.client_contact || '-')}</td>
+            <td>${j.job_received_date ? formatDate(j.job_received_date) : formatDate(j.created_at)}</td>
           </tr>`).join('');
     }
 
@@ -929,16 +952,21 @@
     // ── Create Job ──
     async function createJob() {
       const title = document.getElementById('job-title').value.trim();
-      if (!title) { alert('Please enter a job title'); return; }
+      if (!title) { alert('Please enter a project name/address'); return; }
 
       const job = await api('/jobs', {
         method: 'POST',
         body: JSON.stringify({
           title,
           description: document.getElementById('job-desc').value,
-          customer_name: document.getElementById('job-customer').value,
-          customer_email: document.getElementById('job-email').value,
-          customer_phone: document.getElementById('job-phone').value,
+          initial_status: document.getElementById('job-initial-status').value,
+          depot: document.getElementById('job-depot').value,
+          client: document.getElementById('job-client').value,
+          contract: document.getElementById('job-contract').value,
+          finance_po_number: document.getElementById('job-finance-po').value,
+          client_reference_number: document.getElementById('job-client-ref').value,
+          client_contact: document.getElementById('job-client-contact').value,
+          job_received_date: document.getElementById('job-received-date').value,
           priority: document.getElementById('job-priority').value,
           site_address: document.getElementById('job-address').value,
           scheduled_date: document.getElementById('job-date').value,
@@ -954,10 +982,11 @@
     }
 
     function clearNewJobForm() {
-      ['job-title','job-desc','job-customer','job-email','job-phone','job-address','job-date','job-assigned','job-hours','job-notes'].forEach(id => {
+      ['job-title','job-desc','job-depot','job-client','job-contract','job-finance-po','job-client-ref','job-client-contact','job-received-date','job-address','job-date','job-assigned','job-hours','job-notes'].forEach(id => {
         document.getElementById(id).value = '';
       });
       document.getElementById('job-priority').value = 'normal';
+      document.getElementById('job-initial-status').value = 'quote';
     }
 
     // ── Job Detail ──
@@ -971,16 +1000,21 @@
       document.getElementById('detail-title').textContent = `${data.job_number} - ${data.title}`;
       document.getElementById('detail-body').innerHTML = `
         <div class="detail-grid">
-          <div class="detail-item"><label>Status</label><div class="val"><span class="status-badge status-${data.status}">${data.status.replace('_', ' ')}</span></div></div>
+          <div class="detail-item"><label>Depot</label><div class="val">${esc(data.depot || '-')}</div></div>
+          <div class="detail-item"><label>Client</label><div class="val">${esc(data.client || '-')}</div></div>
+          <div class="detail-item"><label>Contract</label><div class="val">${esc(data.contract || '-')}</div></div>
+          <div class="detail-item"><label>Initial Status</label><div class="val">${esc((data.initial_status || 'quote').replace('_', ' '))}</div></div>
+          <div class="detail-item"><label>Finance/PO Number</label><div class="val">${esc(data.finance_po_number || '-')}</div></div>
+          <div class="detail-item"><label>Client Reference</label><div class="val">${esc(data.client_reference_number || '-')}</div></div>
+          <div class="detail-item"><label>Client Contact</label><div class="val">${esc(data.client_contact || '-')}</div></div>
+          <div class="detail-item"><label>Job Received</label><div class="val">${data.job_received_date || '-'}</div></div>
+          <div class="detail-item"><label>Workflow Status</label><div class="val"><span class="status-badge status-${data.status}">${data.status.replace('_', ' ')}</span></div></div>
           <div class="detail-item"><label>Priority</label><div class="val priority-${data.priority}">${data.priority}</div></div>
-          <div class="detail-item"><label>Customer</label><div class="val">${esc(data.customer_name || '-')}</div></div>
-          <div class="detail-item"><label>Email</label><div class="val">${esc(data.customer_email || '-')}</div></div>
-          <div class="detail-item"><label>Phone</label><div class="val">${esc(data.customer_phone || '-')}</div></div>
+          <div class="detail-item full-width"><label>Project Name/Address</label><div class="val">${esc(data.title || '-')}</div></div>
           <div class="detail-item"><label>Site Address</label><div class="val">${esc(data.site_address || '-')}</div></div>
           <div class="detail-item"><label>Scheduled</label><div class="val">${data.scheduled_date || '-'}</div></div>
           <div class="detail-item"><label>Assigned To</label><div class="val">${esc(data.assigned_to || '-')}</div></div>
           <div class="detail-item"><label>Est. Hours</label><div class="val">${data.estimated_hours || '-'}</div></div>
-          <div class="detail-item"><label>Source</label><div class="val">${esc(data.source)}</div></div>
           <div class="detail-item full-width"><label>Description</label><div class="val">${esc(data.description || 'No description')}</div></div>
           <div class="detail-item full-width"><label>Notes</label><div class="val">${esc(data.notes || 'No notes')}</div></div>
         </div>

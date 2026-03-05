@@ -18,9 +18,9 @@ router.get('/', (req, res) => {
   }
 
   if (search) {
-    conditions.push('(title LIKE ? OR job_number LIKE ? OR customer_name LIKE ?)');
+    conditions.push('(title LIKE ? OR job_number LIKE ? OR customer_name LIKE ? OR client LIKE ? OR client_reference_number LIKE ? OR site_address LIKE ? OR client_contact LIKE ?)');
     const term = `%${search}%`;
-    params.push(term, term, term);
+    params.push(term, term, term, term, term, term, term);
   }
 
   if (conditions.length > 0) {
@@ -52,6 +52,9 @@ router.post('/', (req, res) => {
   const jobNumber = generateJobNumber();
   const {
     title, description, source = 'manual', priority = 'normal',
+    initial_status = 'quote', depot, client, contract,
+    finance_po_number, client_reference_number, client_contact,
+    job_received_date,
     customer_name, customer_email, customer_phone, site_address,
     scheduled_date, assigned_to, estimated_hours, notes, created_by = 'system'
   } = req.body;
@@ -60,11 +63,17 @@ router.post('/', (req, res) => {
 
   const result = db.prepare(`
     INSERT INTO jobs (job_number, title, description, source, priority,
+      initial_status, depot, client, contract,
+      finance_po_number, client_reference_number, client_contact,
+      job_received_date,
       customer_name, customer_email, customer_phone, site_address,
       scheduled_date, assigned_to, estimated_hours, notes, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     jobNumber, title, description, source, priority,
+    initial_status, depot, client, contract,
+    finance_po_number, client_reference_number, client_contact,
+    job_received_date,
     customer_name, customer_email, customer_phone, site_address,
     scheduled_date, assigned_to, estimated_hours, notes, created_by
   );
@@ -93,8 +102,11 @@ router.put('/:id', (req, res) => {
   if (!existing) return res.status(404).json({ error: 'Job not found' });
 
   const fields = [
-    'title', 'description', 'priority', 'customer_name', 'customer_email',
-    'customer_phone', 'site_address', 'scheduled_date', 'assigned_to',
+    'title', 'description', 'priority', 'initial_status',
+    'depot', 'client', 'contract', 'finance_po_number',
+    'client_reference_number', 'client_contact', 'job_received_date',
+    'customer_name', 'customer_email', 'customer_phone',
+    'site_address', 'scheduled_date', 'assigned_to',
     'estimated_hours', 'notes', 'byda_required', 'byda_status'
   ];
 

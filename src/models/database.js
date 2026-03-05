@@ -25,6 +25,14 @@ function initialize() {
       source TEXT NOT NULL DEFAULT 'manual',
       status TEXT NOT NULL DEFAULT 'draft',
       priority TEXT NOT NULL DEFAULT 'normal',
+      initial_status TEXT NOT NULL DEFAULT 'quote',
+      depot TEXT,
+      client TEXT,
+      contract TEXT,
+      finance_po_number TEXT,
+      client_reference_number TEXT,
+      client_contact TEXT,
+      job_received_date TEXT,
       customer_name TEXT,
       customer_email TEXT,
       customer_phone TEXT,
@@ -145,8 +153,26 @@ function initialize() {
     );
   `);
 
-  // Add BYDA columns to jobs if not present (migration-safe)
+  // Add WIP data columns to jobs if not present (migration-safe)
   const jobCols = conn.prepare("PRAGMA table_info(jobs)").all().map(c => c.name);
+
+  const wipColumns = [
+    ["initial_status", "TEXT NOT NULL DEFAULT 'quote'"],
+    ["depot", "TEXT"],
+    ["client", "TEXT"],
+    ["contract", "TEXT"],
+    ["finance_po_number", "TEXT"],
+    ["client_reference_number", "TEXT"],
+    ["client_contact", "TEXT"],
+    ["job_received_date", "TEXT"],
+  ];
+  for (const [col, def] of wipColumns) {
+    if (!jobCols.includes(col)) {
+      conn.exec(`ALTER TABLE jobs ADD COLUMN ${col} ${def}`);
+    }
+  }
+
+  // Add BYDA columns to jobs if not present (migration-safe)
   if (!jobCols.includes('byda_required')) {
     conn.exec("ALTER TABLE jobs ADD COLUMN byda_required INTEGER DEFAULT 0");
   }
@@ -187,13 +213,16 @@ function initialize() {
 
 function generateJobNumber() {
   const conn = getDb();
-  const date = new Date();
-  const prefix = `WO-${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}`;
+  // Acoms format: A0001, A0002, ... (sequential across all jobs)
   const row = conn.prepare(
-    "SELECT COUNT(*) as count FROM jobs WHERE job_number LIKE ? || '%'"
-  ).get(prefix);
-  const seq = String((row.count || 0) + 1).padStart(4, '0');
-  return `${prefix}-${seq}`;
+    "SELECT job_number FROM jobs WHERE job_number LIKE 'A%' ORDER BY CAST(SUBSTR(job_number, 2) AS INTEGER) DESC LIMIT 1"
+  ).get();
+  let nextSeq = 1;
+  if (row) {
+    const num = parseInt(row.job_number.slice(1), 10);
+    if (!isNaN(num)) nextSeq = num + 1;
+  }
+  return `A${String(nextSeq).padStart(4, '0')}`;
 }
 
 module.exports = { getDb, initialize, generateJobNumber };
