@@ -90,8 +90,20 @@ async function getAccessToken() {
     throw new Error(`BYDA token exchange returned non-JSON: ${rawText.slice(0, 200)}`);
   }
 
+  // Log all response keys and any nested structure for diagnostics
   console.log('BYDA token exchange response keys:', Object.keys(body));
-  const token = body.token || body.access_token;
+  for (const key of Object.keys(body)) {
+    const val = body[key];
+    if (typeof val === 'string') {
+      console.log(`  ${key}: (string, length=${val.length}) ${val.slice(0, 20)}...`);
+    } else if (typeof val === 'object' && val !== null) {
+      console.log(`  ${key}: (object) keys=${Object.keys(val).join(', ')}`);
+    } else {
+      console.log(`  ${key}: ${val}`);
+    }
+  }
+
+  const token = body.token || body.access_token || body.IdToken || body.idToken;
   if (!token) {
     throw new Error(`BYDA token exchange returned no token. Response keys: ${Object.keys(body).join(', ')}. Body: ${rawText.slice(0, 300)}`);
   }
@@ -379,17 +391,38 @@ async function lodgeViaSmarterWX(data) {
     scheduled_date: data.scheduled_date || ''
   };
 
-  const res = await fetch(CONFIG.apiUrl + '/enquiries', {
-    method: 'POST',
-    headers: {
-      'Authorization': token,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(payload)
-  });
+  const enquiryUrl = CONFIG.apiUrl + '/enquiries';
+  console.log('BYDA lodge URL:', enquiryUrl);
+  console.log('BYDA lodge payload keys:', Object.keys(payload));
+
+  // Try Bearer format first, then raw token if that fails with 401
+  const authFormats = [`Bearer ${token}`, token];
+  let res;
+  let errText;
+
+  for (const authHeader of authFormats) {
+    const authStyle = authHeader.startsWith('Bearer ') ? 'Bearer' : 'raw';
+    console.log(`BYDA trying Authorization format: ${authStyle}`);
+
+    res = await fetch(enquiryUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': authHeader,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (res.ok) break;
+
+    errText = await res.text();
+    console.log(`BYDA ${authStyle} auth returned ${res.status}: ${errText.slice(0, 300)}`);
+
+    // If not a 401/403 auth issue, don't retry with different format
+    if (res.status !== 401 && res.status !== 403) break;
+  }
 
   if (!res.ok) {
-    const errText = await res.text();
     throw new Error(`BYDA API error ${res.status}: ${errText}`);
   }
 
