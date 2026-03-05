@@ -382,7 +382,7 @@ async function lodgeViaSmarterWX(data) {
   const res = await fetch(CONFIG.apiUrl + '/enquiries', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${token}`,
+      'Authorization': token,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(payload)
