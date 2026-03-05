@@ -2,7 +2,7 @@ node_modules/
 public/uploads/*
 !public/uploads/.gitkeep
 attachments/
-.env
+# .env — temporarily tracked for dev convenience
 *.db
 *.db-shm
 *.db-wal
