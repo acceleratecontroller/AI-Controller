@@ -23,7 +23,7 @@ function initialize() {
       title TEXT NOT NULL,
       description TEXT,
       source TEXT NOT NULL DEFAULT 'manual',
-      status TEXT NOT NULL DEFAULT 'draft',
+      status TEXT NOT NULL DEFAULT 'submitted',
       priority TEXT NOT NULL DEFAULT 'normal',
       initial_status TEXT NOT NULL DEFAULT 'quote',
       depot TEXT,

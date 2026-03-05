@@ -221,8 +221,8 @@ router.delete('/:id', (req, res) => {
   const db = getDb();
   const job = db.prepare('SELECT * FROM jobs WHERE id = ?').get(req.params.id);
   if (!job) return res.status(404).json({ error: 'Job not found' });
-  if (job.status !== 'draft') {
-    return res.status(400).json({ error: 'Only draft jobs can be deleted' });
+  if (!['draft', 'submitted'].includes(job.status)) {
+    return res.status(400).json({ error: 'Only draft or submitted jobs can be deleted' });
   }
 
   db.prepare('DELETE FROM job_history WHERE job_id = ?').run(req.params.id);

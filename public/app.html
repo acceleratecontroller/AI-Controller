@@ -513,10 +513,6 @@
         <button data-view="jobs">
           <span class="icon">&#9998;</span> All Jobs
         </button>
-        <button data-view="review">
-          <span class="icon">&#10003;</span> Review Queue
-          <span class="badge" id="review-count">0</span>
-        </button>
         <button data-view="import">
           <span class="icon">&#8593;</span> Excel Import
         </button>
@@ -559,7 +555,6 @@
             <input type="text" id="search-input" placeholder="Search jobs..." oninput="loadJobs()" />
             <select id="status-filter" onchange="loadJobs()">
               <option value="all">All Statuses</option>
-              <option value="draft">Draft</option>
               <option value="submitted">Submitted</option>
               <option value="in_review">In Review</option>
               <option value="approved">Approved</option>
@@ -573,26 +568,10 @@
               <thead>
                 <tr>
                   <th>Acoms #</th><th>Client</th><th>Contract</th><th>Initial Status</th>
-                  <th>Client Ref</th><th>Project Name/Address</th><th>Client Contact</th><th>Received</th>
+                  <th>Client Ref</th><th>Project Name/Address</th><th>Client Contact</th><th>Received</th><th>Actions</th>
                 </tr>
               </thead>
               <tbody id="all-jobs"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Review Queue View -->
-        <div id="view-review" class="view" style="display:none;">
-          <p style="margin-bottom:16px; color:#555;">Jobs waiting for your review and approval.</p>
-          <div class="job-table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Job #</th><th>Title</th><th>Customer</th>
-                  <th>Priority</th><th>Status</th><th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="review-jobs"></tbody>
             </table>
           </div>
         </div>
@@ -849,12 +828,11 @@
       document.querySelectorAll('.sidebar-nav button').forEach(b => b.classList.remove('active'));
       document.querySelector(`[data-view="${view}"]`).classList.add('active');
 
-      const titles = { dashboard: 'Dashboard', jobs: 'All Jobs', review: 'Review Queue', import: 'Excel Import', 'byda-settings': 'BYDA Rules' };
+      const titles = { dashboard: 'Dashboard', jobs: 'All Jobs', import: 'Excel Import', 'byda-settings': 'BYDA Rules' };
       document.getElementById('page-title').textContent = titles[view] || 'Dashboard';
 
       if (view === 'dashboard') loadDashboard();
       if (view === 'jobs') loadJobs();
-      if (view === 'review') loadReviewQueue();
       if (view === 'byda-settings') loadBydaRules();
     }
 
@@ -874,18 +852,14 @@
 
       const stats = {
         total: jobs.length,
-        draft: jobs.filter(j => j.status === 'draft').length,
         review: jobs.filter(j => ['submitted', 'in_review'].includes(j.status)).length,
         approved: jobs.filter(j => j.status === 'approved').length,
         inProgress: jobs.filter(j => j.status === 'in_progress').length,
         completed: jobs.filter(j => j.status === 'completed').length
       };
 
-      document.getElementById('review-count').textContent = stats.review;
-
       document.getElementById('stats-row').innerHTML = `
         <div class="stat-card"><div class="label">Total Jobs</div><div class="value">${stats.total}</div></div>
-        <div class="stat-card"><div class="label">Drafts</div><div class="value">${stats.draft}</div></div>
         <div class="stat-card"><div class="label">Awaiting Review</div><div class="value" style="color:#f39c12">${stats.review}</div></div>
         <div class="stat-card"><div class="label">Approved</div><div class="value" style="color:#27ae60">${stats.approved}</div></div>
         <div class="stat-card"><div class="label">In Progress</div><div class="value" style="color:#2980b9">${stats.inProgress}</div></div>
@@ -908,7 +882,7 @@
 
       const jobs = await api(`/jobs?${params}`);
       document.getElementById('all-jobs').innerHTML = jobs.length === 0
-        ? '<tr><td colspan="8" class="empty-state">No jobs match your filters</td></tr>'
+        ? '<tr><td colspan="9" class="empty-state">No jobs match your filters</td></tr>'
         : jobs.map(j => `
           <tr onclick="openJobDetail(${j.id})">
             <td><strong>${esc(j.job_number)}</strong></td>
@@ -919,34 +893,19 @@
             <td>${esc(j.title)}</td>
             <td>${esc(j.client_contact || '-')}</td>
             <td>${j.job_received_date ? formatDate(j.job_received_date) : formatDate(j.created_at)}</td>
+            <td onclick="event.stopPropagation()">
+              ${getInlineActions(j)}
+            </td>
           </tr>`).join('');
     }
 
-    // ── Review Queue ──
-    async function loadReviewQueue() {
-      const jobs = await api('/jobs?status=submitted');
-      const inReview = await api('/jobs?status=in_review');
-      const all = [...jobs, ...inReview];
-
-      document.getElementById('review-jobs').innerHTML = all.length === 0
-        ? '<tr><td colspan="6" class="empty-state">No jobs to review right now</td></tr>'
-        : all.map(j => `
-          <tr>
-            <td><strong>${esc(j.job_number)}</strong></td>
-            <td>${esc(j.title)}</td>
-            <td>${esc(j.customer_name || '-')}</td>
-            <td class="priority-${j.priority}">${esc(j.priority)}</td>
-            <td><span class="status-badge status-${j.status}">${esc(j.status.replace('_', ' '))}</span></td>
-            <td>
-              <button class="btn btn-success btn-sm" onclick="quickStatus(${j.id}, '${j.status === 'submitted' ? 'in_review' : 'approved'}')">
-                ${j.status === 'submitted' ? 'Start Review' : 'Approve'}
-              </button>
-              <button class="btn btn-danger btn-sm" onclick="quickStatus(${j.id}, '${j.status === 'submitted' ? 'in_review' : 'rejected'}')" style="${j.status === 'submitted' ? 'display:none' : ''}">
-                Reject
-              </button>
-              <button class="btn btn-outline btn-sm" onclick="openJobDetail(${j.id})">View</button>
-            </td>
-          </tr>`).join('');
+    // ── Inline Action Buttons for Job List ──
+    function getInlineActions(j) {
+      const actions = getStatusActions(j);
+      if (actions.length === 0) return '<span style="color:#999; font-size:0.75rem;">-</span>';
+      return actions.map(a =>
+        `<button class="btn ${a.cls} btn-sm" onclick="quickStatus(${j.id}, '${a.status}'${a.action ? ", '" + a.action + "'" : ''})">${a.label}</button>`
+      ).join(' ');
     }
 
     // ── Create Job ──
@@ -1090,14 +1049,13 @@
 
     function getStatusActions(job) {
       const map = {
-        draft: [{ status: 'submitted', label: 'Submit for Review', cls: 'btn-primary' }],
         submitted: [{ status: 'in_review', label: 'Start Review', cls: 'btn-warning' }],
         in_review: [
           { status: 'approved', label: 'Approve', cls: 'btn-success', action: 'openApprovalModal' },
           { status: 'rejected', label: 'Reject', cls: 'btn-danger' },
-          { status: 'draft', label: 'Send Back to Draft', cls: 'btn-outline' }
+          { status: 'submitted', label: 'Send Back', cls: 'btn-outline' }
         ],
-        rejected: [{ status: 'draft', label: 'Revise (Back to Draft)', cls: 'btn-primary' }],
+        rejected: [{ status: 'submitted', label: 'Resubmit', cls: 'btn-primary' }],
         approved: [{ status: 'in_progress', label: 'Start Work', cls: 'btn-success' }],
         in_progress: [
           { status: 'completed', label: 'Mark Complete', cls: 'btn-success' },
@@ -1125,9 +1083,8 @@
       switchView(currentView);
     }
 
-    async function quickStatus(id, status) {
-      // For approval from review queue, also go through SM8 modal
-      if (status === 'approved') {
+    async function quickStatus(id, status, action) {
+      if (action === 'openApprovalModal' || status === 'approved') {
         openApprovalModal(id);
         return;
       }
@@ -1135,7 +1092,7 @@
         method: 'POST',
         body: JSON.stringify({ status, changed_by: 'user' })
       });
-      loadReviewQueue();
+      loadJobs();
       loadDashboard();
     }
 
