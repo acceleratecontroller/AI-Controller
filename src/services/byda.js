@@ -80,11 +80,21 @@ async function getAccessToken() {
     throw new Error(`BYDA token exchange failed (${res.status}): ${errText}`);
   }
 
-  const body = await res.json();
+  const rawText = await res.text();
+  let body;
+  try {
+    body = JSON.parse(rawText);
+  } catch {
+    throw new Error(`BYDA token exchange returned non-JSON: ${rawText.slice(0, 200)}`);
+  }
+
+  console.log('BYDA token exchange response keys:', Object.keys(body));
   const token = body.token || body.access_token;
   if (!token) {
-    throw new Error('BYDA token exchange returned no token');
+    throw new Error(`BYDA token exchange returned no token. Response keys: ${Object.keys(body).join(', ')}. Body: ${rawText.slice(0, 300)}`);
   }
+
+  console.log('BYDA token obtained, length:', token.length, 'starts with:', token.slice(0, 10) + '...');
 
   // Cache with expiry (default 1 hour if not specified)
   const expiresIn = (body.expires_in || 3600) * 1000;
@@ -367,12 +377,10 @@ async function lodgeViaSmarterWX(data) {
     scheduled_date: data.scheduled_date || ''
   };
 
-  // SmarterWX expects the token directly in the Authorization header
-  // (not Bearer prefix) — their docs say "Authorization HTTP header containing a token"
   const res = await fetch(CONFIG.apiUrl + '/enquiries', {
     method: 'POST',
     headers: {
-      'Authorization': token,
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(payload)
