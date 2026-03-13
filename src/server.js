@@ -6,6 +6,7 @@ const jobRoutes = require('./routes/jobs');
 const uploadRoutes = require('./routes/uploads');
 const attachmentRoutes = require('./routes/attachments');
 const bydaRoutes = require('./routes/byda');
+const sheetsRoutes = require('./routes/sheets');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,6 +22,7 @@ app.use('/api/jobs', attachmentRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/jobs', bydaRoutes);
 app.use('/api/byda', bydaRoutes);
+app.use('/api/sheets', sheetsRoutes);
 
 // Serve main page
 app.get('/', (req, res) => {

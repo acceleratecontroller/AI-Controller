@@ -1119,8 +1119,9 @@
       }
 
       const actions = getStatusActions(data);
-      document.getElementById('detail-actions').innerHTML = actions
-        .map(a => `<button class="btn ${a.cls}" onclick="changeStatus(${data.id}, '${a.status}'${a.action ? ", '" + a.action + "'" : ''})">${a.label}</button>`)
+      document.getElementById('detail-actions').innerHTML =
+        `<button class="btn btn-success" onclick="syncToWIP(${data.id})" title="Sync to Google Sheet WIP">Sync to WIP</button>` +
+        actions.map(a => `<button class="btn ${a.cls}" onclick="changeStatus(${data.id}, '${a.status}'${a.action ? ", '" + a.action + "'" : ''})">${a.label}</button>`)
         .join('') + `<button class="btn btn-outline" onclick="closeModal('modal-job-detail')">Close</button>`;
 
       openModal('modal-job-detail');
@@ -1484,6 +1485,86 @@
     }
 
     // ── Utilities ──
+    // ── WIP Sheet Sync ──
+    async function syncToWIP(jobId) {
+      try {
+        // Check if configured
+        const status = await api('/sheets/status');
+        if (!status.configured) {
+          alert('Google Sheets is not configured. Place your service account JSON file in the project folder.');
+          return;
+        }
+
+        // Preview what would happen
+        const preview = await fetch(`/api/sheets/preview/${jobId}`, { method: 'POST' }).then(r => r.json());
+        if (preview.error) { alert('Error: ' + preview.error); return; }
+
+        // Build confirmation message
+        let msg = 'Sync to WIP Sheet\n\nData to write:\n';
+        preview.columns.forEach((col, i) => {
+          msg += `  ${col}: ${preview.newRow[i] || '(empty)'}\n`;
+        });
+
+        if (preview.exactMatch) {
+          const dup = preview.duplicates[0];
+          msg += `\nEXACT MATCH found in row ${dup.rowIndex}:\n`;
+          msg += `  ${dup.reasons.join(', ')}\n`;
+          msg += '\nExisting row data:\n';
+          preview.columns.forEach((col, i) => {
+            msg += `  ${col}: ${dup.rowData[col.toLowerCase()] || dup.rowData[Object.keys(dup.rowData)[i]] || '(empty)'}\n`;
+          });
+          msg += '\nChoose action:\n';
+          msg += '  OK = Update the existing row\n';
+          msg += '  Cancel = Abort\n';
+
+          if (!confirm(msg)) return;
+
+          const result = await api('/sheets/sync/' + jobId, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'update', rowIndex: dup.rowIndex, confirmed: true })
+          });
+          alert(result.success ? 'Row updated in WIP sheet!' : 'Error: ' + (result.error || 'Unknown'));
+
+        } else if (preview.hasDuplicates) {
+          msg += '\nPOSSIBLE DUPLICATES found:\n';
+          preview.duplicates.forEach(d => {
+            msg += `\n  Row ${d.rowIndex} (${d.score}% match):\n`;
+            d.reasons.forEach(r => { msg += `    - ${r}\n`; });
+            preview.columns.forEach((col, i) => {
+              const val = d.rowData[Object.keys(d.rowData)[i]] || '';
+              if (val) msg += `    ${col}: ${val}\n`;
+            });
+          });
+          msg += '\nDo you still want to ADD A NEW ROW?\n(OK = Add new row, Cancel = Abort)';
+
+          if (!confirm(msg)) return;
+
+          const result = await api('/sheets/sync/' + jobId, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'append', confirmed: true })
+          });
+          alert(result.success ? 'New row added to WIP sheet!' : 'Error: ' + (result.error || 'Unknown'));
+
+        } else {
+          msg += '\nNo duplicates found. Add as new row?\n(OK = Add, Cancel = Abort)';
+
+          if (!confirm(msg)) return;
+
+          const result = await api('/sheets/sync/' + jobId, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'append', confirmed: true })
+          });
+          alert(result.success ? 'New row added to WIP sheet!' : 'Error: ' + (result.error || 'Unknown'));
+        }
+
+        // Refresh the detail view
+        openJobDetail(jobId);
+
+      } catch (err) {
+        alert('Sync failed: ' + err.message);
+      }
+    }
+
     function openModal(id) { document.getElementById(id).classList.add('active'); }
     function closeModal(id) { document.getElementById(id).classList.remove('active'); }
     function openNewJobModal() { openModal('modal-new-job'); }

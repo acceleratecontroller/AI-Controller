@@ -136,6 +136,17 @@ function initialize() {
       created_at TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS sheet_audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      job_id INTEGER,
+      job_number TEXT,
+      action TEXT NOT NULL,
+      confirmed_by TEXT DEFAULT 'user',
+      details TEXT,
+      sheet_range TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS byda_queue (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       job_id INTEGER NOT NULL,

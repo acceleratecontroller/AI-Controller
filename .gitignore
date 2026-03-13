@@ -1,4 +1,7 @@
 node_modules/
+google-credentials.json
+acms-wip-*.json
+*-service-account*.json
 public/uploads/*
 !public/uploads/.gitkeep
 attachments/
