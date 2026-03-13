@@ -856,7 +856,13 @@
         headers: { 'Content-Type': 'application/json', ...options.headers },
         ...options
       });
-      return res.json();
+      const text = await res.text();
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        console.error(`API ${path} returned non-JSON:`, text.substring(0, 200));
+        throw new Error(`Server error on ${path} (status ${res.status})`);
+      }
     }
 
     // ── Dashboard ──
@@ -1496,7 +1502,7 @@
         }
 
         // Preview what would happen
-        const preview = await fetch(`/api/sheets/preview/${jobId}`, { method: 'POST' }).then(r => r.json());
+        const preview = await api(`/sheets/preview/${jobId}`, { method: 'POST', body: JSON.stringify({}) });
         if (preview.error) { alert('Error: ' + preview.error); return; }
 
         // Build confirmation message
