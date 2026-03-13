@@ -247,6 +247,118 @@
       justify-content: flex-end;
     }
 
+    /* Sheet Sync Modal */
+    #modal-sheet-sync .modal { max-width: 620px; }
+    .sync-preview-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+      margin-bottom: 12px;
+    }
+    .sync-preview-table th {
+      text-align: left;
+      padding: 5px 10px;
+      background: #f8f9fa;
+      color: #555;
+      font-weight: 600;
+      border-bottom: 2px solid #e9ecef;
+      white-space: nowrap;
+    }
+    .sync-preview-table td {
+      padding: 5px 10px;
+      border-bottom: 1px solid #f0f0f0;
+      color: #2c3e50;
+      cursor: pointer;
+      user-select: all;
+    }
+    .sync-preview-table td:hover { background: #f0f2f5; }
+    .sync-preview-table tr.empty-val td:last-child { color: #ccc; font-style: italic; }
+
+    .sync-dup-warning {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin: 12px 0;
+    }
+    .sync-dup-warning.exact {
+      background: #f8d7da;
+      border-color: #e74c3c;
+    }
+    .sync-dup-warning h4 {
+      margin: 0 0 8px 0;
+      font-size: 0.9rem;
+      color: #856404;
+    }
+    .sync-dup-warning.exact h4 { color: #721c24; }
+    .sync-dup-match {
+      background: #fff;
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin-top: 8px;
+      border: 1px solid rgba(0,0,0,0.08);
+    }
+    .sync-dup-match .match-header {
+      font-weight: 600;
+      font-size: 0.82rem;
+      color: #2c3e50;
+      margin-bottom: 4px;
+    }
+    .sync-dup-match .match-reason {
+      font-size: 0.78rem;
+      color: #856404;
+      padding: 1px 0;
+    }
+    .sync-dup-warning.exact .match-reason { color: #721c24; }
+
+    .sync-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .sync-action-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      background: #fff;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: left;
+    }
+    .sync-action-btn:hover { border-color: #667eea; background: #f8f9ff; }
+    .sync-action-btn .action-icon {
+      font-size: 1.4rem;
+      width: 36px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .sync-action-btn .action-text strong {
+      display: block;
+      font-size: 0.88rem;
+      color: #2c3e50;
+      margin-bottom: 2px;
+    }
+    .sync-action-btn .action-text span {
+      font-size: 0.78rem;
+      color: #777;
+    }
+    .sync-action-btn.action-ignore { border-color: #eee; }
+    .sync-action-btn.action-ignore:hover { border-color: #999; background: #fafafa; }
+    .sync-action-btn.action-same:hover { border-color: #f39c12; background: #fffcf5; }
+    .sync-action-btn.action-new:hover { border-color: #27ae60; background: #f5fdf8; }
+
+    .sync-success {
+      text-align: center;
+      padding: 20px 0;
+    }
+    .sync-success .tick { font-size: 2.5rem; margin-bottom: 8px; }
+    .sync-success p { color: #155724; font-weight: 600; font-size: 0.95rem; }
+    .sync-success .sub { color: #777; font-weight: 400; font-size: 0.82rem; margin-top: 4px; }
+
     /* Form inside modal */
     .form-grid {
       display: grid;
@@ -818,6 +930,22 @@
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closeModal('modal-sm8-approve')">Cancel</button>
         <button class="btn btn-success" id="sm8-approve-btn" onclick="confirmApproval()">Approve &amp; Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sheet Sync Modal -->
+  <div class="modal-overlay" id="modal-sheet-sync">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="sync-modal-title">Add to WIP Sheet</h3>
+        <button class="modal-close" onclick="closeModal('modal-sheet-sync')">&times;</button>
+      </div>
+      <div class="modal-body" id="sync-modal-body">
+        <!-- Populated dynamically -->
+      </div>
+      <div class="modal-footer" id="sync-modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-sheet-sync')">Close</button>
       </div>
     </div>
   </div>
@@ -1493,91 +1621,134 @@
     // ── Utilities ──
     // ── WIP Sheet Sync ──
     async function syncToWIP(jobId) {
+      const body = document.getElementById('sync-modal-body');
+      const footer = document.getElementById('sync-modal-footer');
+      const title = document.getElementById('sync-modal-title');
+
+      // Show loading state
+      title.textContent = 'Add to WIP Sheet';
+      body.innerHTML = '<p style="text-align:center;color:#777;padding:20px 0;">Loading preview...</p>';
+      footer.innerHTML = '<button class="btn btn-outline" onclick="closeModal(\'modal-sheet-sync\')">Cancel</button>';
+      openModal('modal-sheet-sync');
+
       try {
-        // Check if configured
         const status = await api('/sheets/status');
         if (!status.configured) {
-          alert('Google Sheets is not configured. Place your service account JSON file in the project folder.');
+          body.innerHTML = '<p style="color:#e74c3c;">Google Sheets is not configured. Place your service account JSON file in the project folder.</p>';
           return;
         }
 
-        // Preview what would happen
         const preview = await api(`/sheets/preview/${jobId}`, { method: 'POST', body: JSON.stringify({}) });
-        if (preview.error) { alert('Error: ' + preview.error); return; }
-
-        // Build row preview text
-        let rowSummary = 'New row to add:\n';
-        preview.columns.forEach((col, i) => {
-          rowSummary += `  ${col}: ${preview.newRow[i] || '(empty)'}\n`;
-        });
-
-        if (preview.hasDuplicates) {
-          // Build duplicate info
-          let dupInfo = 'POSSIBLE DUPLICATES FOUND:\n';
-          preview.duplicates.forEach(d => {
-            dupInfo += `\n  Row ${d.rowIndex} (${d.score}% match):\n`;
-            d.reasons.forEach(r => { dupInfo += `    - ${r}\n`; });
-          });
-
-          // For ACOMS exact match (100%), this is definitely the same job
-          const isExact = preview.duplicates.some(d => d.score >= 100);
-
-          if (isExact) {
-            dupInfo += '\nThis ACOMS number already exists in the sheet.';
-            dupInfo += '\nThis job is already recorded — adding it again would be a duplicate.';
-          }
-
-          // 3-choice prompt
-          const choice = prompt(
-            'Add to WIP Sheet\n\n' + rowSummary + '\n' + dupInfo +
-            '\n\nHow do you want to proceed?\n' +
-            '  1 = IGNORE — Do not add, cancel\n' +
-            '  2 = SAME JOB — Add as duplicate entry for the same job\n' +
-            '  3 = SEPARATE JOB — This is a different job, add as new\n' +
-            '\nEnter 1, 2, or 3:'
-          );
-
-          if (!choice || choice.trim() === '1') {
-            alert('Cancelled — nothing was added.');
-            return;
-          }
-
-          let note = '';
-          if (choice.trim() === '2') {
-            note = 'duplicate_of_row_' + preview.duplicates[0].rowIndex;
-          } else if (choice.trim() === '3') {
-            note = 'confirmed_separate_job';
-          } else {
-            alert('Invalid choice — nothing was added.');
-            return;
-          }
-
-          const result = await api('/sheets/sync/' + jobId, {
-            method: 'POST',
-            body: JSON.stringify({ confirmed: true, duplicate_decision: note })
-          });
-          if (choice.trim() === '2') {
-            alert(result.success ? 'Row added to WIP sheet (noted as same job / duplicate).' : 'Error: ' + (result.error || 'Unknown'));
-          } else {
-            alert(result.success ? 'Row added to WIP sheet as separate job.' : 'Error: ' + (result.error || 'Unknown'));
-          }
-
-        } else {
-          // No duplicates — simple confirm
-          if (!confirm('Add to WIP Sheet\n\n' + rowSummary + '\nNo duplicates found.\nOK = Add new row, Cancel = Abort')) return;
-
-          const result = await api('/sheets/sync/' + jobId, {
-            method: 'POST',
-            body: JSON.stringify({ confirmed: true })
-          });
-          alert(result.success ? 'New row added to WIP sheet!' : 'Error: ' + (result.error || 'Unknown'));
+        if (preview.error) {
+          body.innerHTML = '<p style="color:#e74c3c;">Error: ' + preview.error + '</p>';
+          return;
         }
 
-        // Refresh the detail view
-        openJobDetail(jobId);
+        // Build the data preview table (easy to read, click to select/copy)
+        let html = '<table class="sync-preview-table"><tr><th>Column</th><th>Value</th></tr>';
+        preview.columns.forEach((col, i) => {
+          const val = preview.newRow[i] || '';
+          const cls = val ? '' : ' class="empty-val"';
+          html += `<tr${cls}><td>${col}</td><td>${val || '(empty)'}</td></tr>`;
+        });
+        html += '</table>';
+
+        if (preview.hasDuplicates) {
+          const isExact = preview.duplicates.some(d => d.score >= 100);
+          const warnClass = isExact ? 'sync-dup-warning exact' : 'sync-dup-warning';
+          const warnTitle = isExact
+            ? 'This ACOMS number already exists in the sheet'
+            : 'Possible duplicates found';
+
+          html += `<div class="${warnClass}">`;
+          html += `<h4>${warnTitle}</h4>`;
+          preview.duplicates.forEach(d => {
+            html += '<div class="sync-dup-match">';
+            html += `<div class="match-header">Row ${d.rowIndex} &mdash; ${d.score}% match</div>`;
+            d.reasons.forEach(r => {
+              html += `<div class="match-reason">${r}</div>`;
+            });
+            html += '</div>';
+          });
+          html += '</div>';
+
+          // 3-choice action buttons
+          html += '<div class="sync-actions">';
+          html += `<button class="sync-action-btn action-ignore" onclick="syncFinish(${jobId}, 'ignore')">
+            <span class="action-icon">&#10060;</span>
+            <span class="action-text"><strong>Ignore</strong><span>Don't add — cancel this sync</span></span>
+          </button>`;
+          html += `<button class="sync-action-btn action-same" onclick="syncFinish(${jobId}, 'same', ${preview.duplicates[0].rowIndex})">
+            <span class="action-icon">&#128257;</span>
+            <span class="action-text"><strong>Same Job</strong><span>Add as a duplicate entry for the same job</span></span>
+          </button>`;
+          html += `<button class="sync-action-btn action-new" onclick="syncFinish(${jobId}, 'separate')">
+            <span class="action-icon">&#10003;</span>
+            <span class="action-text"><strong>Separate Job</strong><span>This is a different job — add as new row</span></span>
+          </button>`;
+          html += '</div>';
+
+          body.innerHTML = html;
+          footer.innerHTML = '<button class="btn btn-outline" onclick="closeModal(\'modal-sheet-sync\')">Cancel</button>';
+
+        } else {
+          // No duplicates — clean confirm
+          body.innerHTML = html + '<p style="color:#27ae60;font-size:0.85rem;margin-top:8px;">No duplicates found. Ready to add as a new row.</p>';
+          footer.innerHTML = `
+            <button class="btn btn-outline" onclick="closeModal('modal-sheet-sync')">Cancel</button>
+            <button class="btn btn-success" onclick="syncFinish(${jobId}, 'new')">Add to WIP Sheet</button>
+          `;
+        }
 
       } catch (err) {
-        alert('Sync failed: ' + err.message);
+        body.innerHTML = '<p style="color:#e74c3c;">Sync failed: ' + err.message + '</p>';
+      }
+    }
+
+    async function syncFinish(jobId, decision, dupRow) {
+      const body = document.getElementById('sync-modal-body');
+      const footer = document.getElementById('sync-modal-footer');
+
+      if (decision === 'ignore') {
+        closeModal('modal-sheet-sync');
+        return;
+      }
+
+      // Disable buttons while writing
+      body.querySelectorAll('.sync-action-btn, .btn-success').forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
+
+      let duplicate_decision = null;
+      if (decision === 'same') duplicate_decision = 'duplicate_of_row_' + dupRow;
+      if (decision === 'separate') duplicate_decision = 'confirmed_separate_job';
+
+      try {
+        const payload = { confirmed: true };
+        if (duplicate_decision) payload.duplicate_decision = duplicate_decision;
+
+        const result = await api('/sheets/sync/' + jobId, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+
+        if (result.success) {
+          let msg = 'New row added to WIP sheet';
+          if (decision === 'same') msg = 'Row added (noted as same job / duplicate)';
+          if (decision === 'separate') msg = 'Row added as separate job';
+
+          body.innerHTML = `<div class="sync-success">
+            <div class="tick">&#9989;</div>
+            <p>${msg}</p>
+            <p class="sub">${result.updatedRange || ''}</p>
+          </div>`;
+          footer.innerHTML = '<button class="btn btn-success" onclick="closeModal(\'modal-sheet-sync\')">Done</button>';
+          openJobDetail(jobId); // refresh behind the modal
+        } else {
+          body.innerHTML = '<p style="color:#e74c3c;">Error: ' + (result.error || 'Unknown error') + '</p>';
+          footer.innerHTML = '<button class="btn btn-outline" onclick="closeModal(\'modal-sheet-sync\')">Close</button>';
+        }
+      } catch (err) {
+        body.innerHTML = '<p style="color:#e74c3c;">Write failed: ' + err.message + '</p>';
+        footer.innerHTML = '<button class="btn btn-outline" onclick="closeModal(\'modal-sheet-sync\')">Close</button>';
       }
     }
 
