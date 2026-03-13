@@ -697,6 +697,16 @@
             <label>Notes</label>
             <textarea id="job-notes" placeholder="Any additional notes..."></textarea>
           </div>
+          <div class="form-field full-width">
+            <label>Attachments</label>
+            <div class="attachment-upload-zone" id="new-job-drop-zone"
+                 onclick="document.getElementById('new-job-file-input').click()">
+              <p>Drag & drop files here, or click to browse</p>
+              <small>Max 50 MB per file</small>
+            </div>
+            <input type="file" id="new-job-file-input" multiple style="display:none" />
+            <ul class="attachment-list" id="new-job-file-list"></ul>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
@@ -908,6 +918,58 @@
       ).join(' ');
     }
 
+    // ── New-Job File Queue ──
+    let newJobFiles = [];
+
+    (function initNewJobDropZone() {
+      const zone = document.getElementById('new-job-drop-zone');
+      const input = document.getElementById('new-job-file-input');
+
+      zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+      zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+      zone.addEventListener('drop', e => {
+        e.preventDefault();
+        zone.classList.remove('drag-over');
+        addNewJobFiles(e.dataTransfer.files);
+      });
+      input.addEventListener('change', () => { addNewJobFiles(input.files); input.value = ''; });
+    })();
+
+    function addNewJobFiles(fileList) {
+      for (const f of fileList) {
+        if (f.size > 50 * 1024 * 1024) { alert(`File "${f.name}" exceeds 50 MB limit`); continue; }
+        if (newJobFiles.some(x => x.name === f.name && x.size === f.size)) continue;
+        newJobFiles.push(f);
+      }
+      renderNewJobFileList();
+    }
+
+    function removeNewJobFile(index) {
+      newJobFiles.splice(index, 1);
+      renderNewJobFileList();
+    }
+
+    function renderNewJobFileList() {
+      const ul = document.getElementById('new-job-file-list');
+      if (!newJobFiles.length) { ul.innerHTML = ''; return; }
+      ul.innerHTML = newJobFiles.map((f, i) => `
+        <li class="attachment-item">
+          <span class="file-icon">&#128206;</span>
+          <span class="file-info">
+            <span class="file-name">${esc(f.name)}</span>
+            <span class="file-meta">${formatFileSize(f.size)}</span>
+          </span>
+          <button class="btn btn-danger btn-sm" onclick="removeNewJobFile(${i})">&#10005;</button>
+        </li>
+      `).join('');
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
     // ── Create Job ──
     async function createJob() {
       const title = document.getElementById('job-title').value.trim();
@@ -935,6 +997,17 @@
         })
       });
 
+      // Upload queued files if any
+      if (newJobFiles.length > 0 && job && job.id) {
+        const formData = new FormData();
+        newJobFiles.forEach(f => formData.append('files', f));
+        try {
+          await fetch(`/api/jobs/${job.id}/attachments`, { method: 'POST', body: formData });
+        } catch (e) {
+          console.error('File upload failed:', e);
+        }
+      }
+
       closeModal('modal-new-job');
       clearNewJobForm();
       switchView('dashboard');
@@ -946,6 +1019,8 @@
       });
       document.getElementById('job-priority').value = 'normal';
       document.getElementById('job-initial-status').value = 'quote';
+      newJobFiles = [];
+      document.getElementById('new-job-file-list').innerHTML = '';
     }
 
     // ── Job Detail ──
