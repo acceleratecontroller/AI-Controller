@@ -231,45 +231,8 @@ async function appendRow(job, confirmedBy = 'user') {
   };
 }
 
-// ── Update existing row ─────────────────────────────────────────────────────
-async function updateRow(rowIndex, job, confirmedBy = 'user') {
-  const sheets = await getSheets();
-
-  // First read the existing row to log old values
-  const existing = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A${rowIndex}:J${rowIndex}`,
-  });
-  const oldRow = (existing.data.values || [[]])[0];
-
-  const newRow = COLUMN_MAP.map(c => {
-    let val = job[c.field] || '';
-    if (c.field === 'initial_status') {
-      val = (val || 'quote').replace('_', ' ');
-      val = val.charAt(0).toUpperCase() + val.slice(1);
-    }
-    return val;
-  });
-
-  // Write only columns A–J for that row
-  await sheets.spreadsheets.values.update({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A${rowIndex}:J${rowIndex}`,
-    valueInputOption: 'USER_ENTERED',
-    requestBody: { values: [newRow] },
-  });
-
-  logAudit({
-    job_id: job.id,
-    job_number: job.job_number,
-    action: 'update_row',
-    confirmed_by: confirmedBy,
-    details: JSON.stringify({ rowIndex, oldRow, newRow }),
-    sheet_range: `${SHEET_NAME}!A${rowIndex}:J${rowIndex}`,
-  });
-
-  return { success: true, rowIndex, oldRow, newRow };
-}
+// NOTE: No updateRow function — we NEVER overwrite existing rows.
+// Duplicates are warnings only; all writes are append-only.
 
 // ── Audit Log ───────────────────────────────────────────────────────────────
 function logAudit({ job_id, job_number, action, confirmed_by, details, sheet_range }) {
@@ -290,6 +253,5 @@ module.exports = {
   findDuplicates,
   previewWrite,
   appendRow,
-  updateRow,
   COLUMN_MAP,
 };

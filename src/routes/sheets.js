@@ -36,24 +36,20 @@ router.post('/sync/:jobId', async (req, res) => {
     return res.status(400).json({ error: 'Google Sheets credentials not configured' });
   }
 
-  const { action, rowIndex, confirmed } = req.body;
+  const { confirmed } = req.body;
 
   if (!confirmed) {
     return res.status(400).json({ error: 'Write must be explicitly confirmed (confirmed: true)' });
   }
 
   try {
-    let result;
-    if (action === 'update' && rowIndex) {
-      result = await sheets.updateRow(rowIndex, job, req.body.confirmed_by || 'user');
-    } else {
-      result = await sheets.appendRow(job, req.body.confirmed_by || 'user');
-    }
+    // Always append — never overwrite existing rows
+    const result = await sheets.appendRow(job, req.body.confirmed_by || 'user');
 
     // Log to job history too
     db.prepare(
       "INSERT INTO job_history (job_id, action, changed_by, details) VALUES (?, 'sheet_synced', ?, ?)"
-    ).run(job.id, req.body.confirmed_by || 'user', `Synced to WIP sheet (${action || 'append'})`);
+    ).run(job.id, req.body.confirmed_by || 'user', 'Synced to WIP sheet (new row appended)');
 
     res.json(result);
   } catch (err) {

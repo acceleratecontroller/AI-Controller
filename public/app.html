@@ -1505,63 +1505,31 @@
         const preview = await api(`/sheets/preview/${jobId}`, { method: 'POST', body: JSON.stringify({}) });
         if (preview.error) { alert('Error: ' + preview.error); return; }
 
-        // Build confirmation message
-        let msg = 'Sync to WIP Sheet\n\nData to write:\n';
+        // Build confirmation message — always append, never overwrite
+        let msg = 'Add to WIP Sheet\n\nNew row to add:\n';
         preview.columns.forEach((col, i) => {
           msg += `  ${col}: ${preview.newRow[i] || '(empty)'}\n`;
         });
 
-        if (preview.exactMatch) {
-          const dup = preview.duplicates[0];
-          msg += `\nEXACT MATCH found in row ${dup.rowIndex}:\n`;
-          msg += `  ${dup.reasons.join(', ')}\n`;
-          msg += '\nExisting row data:\n';
-          preview.columns.forEach((col, i) => {
-            msg += `  ${col}: ${dup.rowData[col.toLowerCase()] || dup.rowData[Object.keys(dup.rowData)[i]] || '(empty)'}\n`;
-          });
-          msg += '\nChoose action:\n';
-          msg += '  OK = Update the existing row\n';
-          msg += '  Cancel = Abort\n';
-
-          if (!confirm(msg)) return;
-
-          const result = await api('/sheets/sync/' + jobId, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'update', rowIndex: dup.rowIndex, confirmed: true })
-          });
-          alert(result.success ? 'Row updated in WIP sheet!' : 'Error: ' + (result.error || 'Unknown'));
-
-        } else if (preview.hasDuplicates) {
-          msg += '\nPOSSIBLE DUPLICATES found:\n';
+        if (preview.hasDuplicates) {
+          msg += '\nWARNING — Possible duplicates found:\n';
           preview.duplicates.forEach(d => {
             msg += `\n  Row ${d.rowIndex} (${d.score}% match):\n`;
             d.reasons.forEach(r => { msg += `    - ${r}\n`; });
-            preview.columns.forEach((col, i) => {
-              const val = d.rowData[Object.keys(d.rowData)[i]] || '';
-              if (val) msg += `    ${col}: ${val}\n`;
-            });
           });
-          msg += '\nDo you still want to ADD A NEW ROW?\n(OK = Add new row, Cancel = Abort)';
-
-          if (!confirm(msg)) return;
-
-          const result = await api('/sheets/sync/' + jobId, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'append', confirmed: true })
-          });
-          alert(result.success ? 'New row added to WIP sheet!' : 'Error: ' + (result.error || 'Unknown'));
-
+          msg += '\nThis will ADD A NEW ROW (existing rows are never modified).\n';
+          msg += 'OK = Add anyway, Cancel = Abort';
         } else {
-          msg += '\nNo duplicates found. Add as new row?\n(OK = Add, Cancel = Abort)';
-
-          if (!confirm(msg)) return;
-
-          const result = await api('/sheets/sync/' + jobId, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'append', confirmed: true })
-          });
-          alert(result.success ? 'New row added to WIP sheet!' : 'Error: ' + (result.error || 'Unknown'));
+          msg += '\nNo duplicates found.\nOK = Add new row, Cancel = Abort';
         }
+
+        if (!confirm(msg)) return;
+
+        const result = await api('/sheets/sync/' + jobId, {
+          method: 'POST',
+          body: JSON.stringify({ confirmed: true })
+        });
+        alert(result.success ? 'New row added to WIP sheet!' : 'Error: ' + (result.error || 'Unknown'));
 
         // Refresh the detail view
         openJobDetail(jobId);
