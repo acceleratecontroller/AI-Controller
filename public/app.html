@@ -1505,31 +1505,73 @@
         const preview = await api(`/sheets/preview/${jobId}`, { method: 'POST', body: JSON.stringify({}) });
         if (preview.error) { alert('Error: ' + preview.error); return; }
 
-        // Build confirmation message — always append, never overwrite
-        let msg = 'Add to WIP Sheet\n\nNew row to add:\n';
+        // Build row preview text
+        let rowSummary = 'New row to add:\n';
         preview.columns.forEach((col, i) => {
-          msg += `  ${col}: ${preview.newRow[i] || '(empty)'}\n`;
+          rowSummary += `  ${col}: ${preview.newRow[i] || '(empty)'}\n`;
         });
 
         if (preview.hasDuplicates) {
-          msg += '\nWARNING — Possible duplicates found:\n';
+          // Build duplicate info
+          let dupInfo = 'POSSIBLE DUPLICATES FOUND:\n';
           preview.duplicates.forEach(d => {
-            msg += `\n  Row ${d.rowIndex} (${d.score}% match):\n`;
-            d.reasons.forEach(r => { msg += `    - ${r}\n`; });
+            dupInfo += `\n  Row ${d.rowIndex} (${d.score}% match):\n`;
+            d.reasons.forEach(r => { dupInfo += `    - ${r}\n`; });
           });
-          msg += '\nThis will ADD A NEW ROW (existing rows are never modified).\n';
-          msg += 'OK = Add anyway, Cancel = Abort';
+
+          // For ACOMS exact match (100%), this is definitely the same job
+          const isExact = preview.duplicates.some(d => d.score >= 100);
+
+          if (isExact) {
+            dupInfo += '\nThis ACOMS number already exists in the sheet.';
+            dupInfo += '\nThis job is already recorded — adding it again would be a duplicate.';
+          }
+
+          // 3-choice prompt
+          const choice = prompt(
+            'Add to WIP Sheet\n\n' + rowSummary + '\n' + dupInfo +
+            '\n\nHow do you want to proceed?\n' +
+            '  1 = IGNORE — Do not add, cancel\n' +
+            '  2 = SAME JOB — Add as duplicate entry for the same job\n' +
+            '  3 = SEPARATE JOB — This is a different job, add as new\n' +
+            '\nEnter 1, 2, or 3:'
+          );
+
+          if (!choice || choice.trim() === '1') {
+            alert('Cancelled — nothing was added.');
+            return;
+          }
+
+          let note = '';
+          if (choice.trim() === '2') {
+            note = 'duplicate_of_row_' + preview.duplicates[0].rowIndex;
+          } else if (choice.trim() === '3') {
+            note = 'confirmed_separate_job';
+          } else {
+            alert('Invalid choice — nothing was added.');
+            return;
+          }
+
+          const result = await api('/sheets/sync/' + jobId, {
+            method: 'POST',
+            body: JSON.stringify({ confirmed: true, duplicate_decision: note })
+          });
+          if (choice.trim() === '2') {
+            alert(result.success ? 'Row added to WIP sheet (noted as same job / duplicate).' : 'Error: ' + (result.error || 'Unknown'));
+          } else {
+            alert(result.success ? 'Row added to WIP sheet as separate job.' : 'Error: ' + (result.error || 'Unknown'));
+          }
+
         } else {
-          msg += '\nNo duplicates found.\nOK = Add new row, Cancel = Abort';
+          // No duplicates — simple confirm
+          if (!confirm('Add to WIP Sheet\n\n' + rowSummary + '\nNo duplicates found.\nOK = Add new row, Cancel = Abort')) return;
+
+          const result = await api('/sheets/sync/' + jobId, {
+            method: 'POST',
+            body: JSON.stringify({ confirmed: true })
+          });
+          alert(result.success ? 'New row added to WIP sheet!' : 'Error: ' + (result.error || 'Unknown'));
         }
-
-        if (!confirm(msg)) return;
-
-        const result = await api('/sheets/sync/' + jobId, {
-          method: 'POST',
-          body: JSON.stringify({ confirmed: true })
-        });
-        alert(result.success ? 'New row added to WIP sheet!' : 'Error: ' + (result.error || 'Unknown'));
 
         // Refresh the detail view
         openJobDetail(jobId);

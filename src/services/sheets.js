@@ -127,45 +127,51 @@ function findDuplicates(job, existingRows) {
     let score = 0;
     let reasons = [];
 
-    // Exact ACOMS number match — definite duplicate
+    // Col E: ACOMS number — THE unique identifier, definite duplicate
     if (normalise(job.job_number) && normalise(rowData.job_number) === normalise(job.job_number)) {
-      return [{ rowIndex: i + 2, score: 100, reasons: ['Exact ACOMS number match'], rowData }];
+      return [{ rowIndex: i + 2, score: 100, reasons: ['Exact ACOMS number match — this job already exists'], rowData }];
     }
 
-    // Only check genuinely unique fields — skip common ones like depot, client, contract
-
-    // Client reference number — strong unique identifier
-    if (normalise(job.client_reference_number) && normalise(rowData.client_reference_number) === normalise(job.client_reference_number)) {
-      score += 50;
-      reasons.push('Client reference number matches');
-    }
-
-    // Finance/PO number — strong unique identifier
+    // Col F: Finance/PO number
     if (normalise(job.finance_po_number) && normalise(rowData.finance_po_number) === normalise(job.finance_po_number)) {
-      score += 50;
+      score += 40;
       reasons.push('Finance/PO number matches');
     }
 
-    // Project name/address — can sometimes match but worth flagging
-    if (normalise(job.title) && normalise(rowData.title) === normalise(job.title)) {
+    // Col G: Client reference number
+    if (normalise(job.client_reference_number) && normalise(rowData.client_reference_number) === normalise(job.client_reference_number)) {
       score += 40;
+      reasons.push('Client reference number matches');
+    }
+
+    // Col H: Project name/address
+    if (normalise(job.title) && normalise(rowData.title) === normalise(job.title)) {
+      score += 35;
       reasons.push('Project name/address exact match');
     } else if (normalise(job.title) && normalise(rowData.title) && normalise(job.title).length > 10 && (
       normalise(rowData.title).includes(normalise(job.title)) ||
       normalise(job.title).includes(normalise(rowData.title))
     )) {
-      score += 20;
+      score += 15;
       reasons.push('Project name/address partially matches');
     }
 
-    // Only flag if a unique field actually matched (score >= 40)
-    if (score >= 40) {
+    // Col I: Job received date — same date adds weight when combined with other matches
+    if (normalise(job.job_received_date) && normalise(rowData.job_received_date) === normalise(job.job_received_date)) {
+      if (score > 0) {
+        score += 15;
+        reasons.push('Same job received date');
+      }
+    }
+
+    // Only flag if score is meaningful (at least one strong field matched)
+    if (score >= 35) {
       matches.push({ rowIndex: i + 2, score, reasons, rowData });
     }
   }
 
   matches.sort((a, b) => b.score - a.score);
-  return matches.slice(0, 5); // top 5 potential duplicates
+  return matches.slice(0, 5);
 }
 
 // ── Preview (dry run) ───────────────────────────────────────────────────────
